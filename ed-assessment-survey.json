@@ -1,0 +1,835 @@
+{
+  "id": "survey_f686748c-66e8-4ffa-b0ca-7e20d9915f6a",
+  "title": "Simple & Private ED Assessment",
+  "description": "Complete this simple assessment to request treatment for erectile dysfunction. Our practitioners will review your information and provide a prescription if appropriate.",
+  "version": 1,
+  "createdAt": "2026-08-14T08:18:02.485Z",
+  "updatedAt": "2026-08-14T08:18:02.486Z",
+  "startPageId": "page_6936bec6-abc6-4cc3-a8c9-7d1fd81d8c72",
+  "pages": [
+    {
+      "id": "page_6936bec6-abc6-4cc3-a8c9-7d1fd81d8c72",
+      "title": "Date of Birth",
+      "questions": [
+        {
+          "id": "dob",
+          "type": "date",
+          "label": "What is your date of birth?",
+          "description": "You must be between 18 and 70 years old to use our ED treatment services.",
+          "required": true
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "dob": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "dob"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/dob",
+            "label": "What is your date of birth?",
+            "options": {
+              "description": "You must be between 18 and 70 years old to use our ED treatment services."
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_b2505b6b-fd31-4951-b4e5-bb9ca8d8fab5"
+    },
+    {
+      "id": "page_b2505b6b-fd31-4951-b4e5-bb9ca8d8fab5",
+      "title": "Weight & Height",
+      "questions": [
+        {
+          "id": "weightKg",
+          "type": "number",
+          "label": "Weight (kg)",
+          "required": true
+        },
+        {
+          "id": "heightCm",
+          "type": "number",
+          "label": "Height (cm)",
+          "required": true
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "weightKg": {
+            "type": "number"
+          },
+          "heightCm": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "weightKg",
+          "heightCm"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/weightKg",
+            "label": "Weight (kg)"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/heightCm",
+            "label": "Height (cm)"
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_f66e02ab-ee83-4cfb-bf33-b0d308135b94"
+    },
+    {
+      "id": "page_f66e02ab-ee83-4cfb-bf33-b0d308135b94",
+      "title": "Sex Assigned at Birth",
+      "questions": [
+        {
+          "id": "sexAtBirth",
+          "type": "singleChoice",
+          "label": "What was your sex assigned at birth?",
+          "description": "This service is currently only available for individuals assigned male at birth.",
+          "required": true,
+          "choices": [
+            "Male",
+            "Female"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sexAtBirth": {
+            "type": "string",
+            "enum": [
+              "Male",
+              "Female"
+            ]
+          }
+        },
+        "required": [
+          "sexAtBirth"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/sexAtBirth",
+            "label": "What was your sex assigned at birth?",
+            "options": {
+              "description": "This service is currently only available for individuals assigned male at birth."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_6dbc0f1a-115b-4025-a000-e502546580cd",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/sexAtBirth",
+                "operator": "eq",
+                "value": "Female"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_83792e14-e6b3-4f22-b0ed-2b2b2f0dc94b"
+    },
+    {
+      "id": "page_83792e14-e6b3-4f22-b0ed-2b2b2f0dc94b",
+      "title": "Heart Attack or Stent",
+      "questions": [
+        {
+          "id": "heartAttackStent",
+          "type": "singleChoice",
+          "label": "Have you had a heart attack or stent in the last 6 months?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "heartAttackStent": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "heartAttackStent"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/heartAttackStent",
+            "label": "Have you had a heart attack or stent in the last 6 months?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_39ad1f13-19c8-4edd-bb89-a296377a9b8d",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/heartAttackStent",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_85215b88-1d25-4c1f-a523-68250a9d1b89"
+    },
+    {
+      "id": "page_85215b88-1d25-4c1f-a523-68250a9d1b89",
+      "title": "Stroke or Mini-Stroke",
+      "questions": [
+        {
+          "id": "stroke",
+          "type": "singleChoice",
+          "label": "Have you had a stroke or mini-stroke in the last 6 months?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "stroke": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "stroke"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/stroke",
+            "label": "Have you had a stroke or mini-stroke in the last 6 months?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_4d506014-275f-491e-a00c-cb750de7a07b",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/stroke",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_dea427ae-e578-486d-b7d6-84cf454ddb23"
+    },
+    {
+      "id": "page_dea427ae-e578-486d-b7d6-84cf454ddb23",
+      "title": "Cardiac Conditions",
+      "questions": [
+        {
+          "id": "cardiacConditions",
+          "type": "singleChoice",
+          "label": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "cardiacConditions": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "cardiacConditions"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/cardiacConditions",
+            "label": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_bd5d3f44-f4b3-4846-bfa2-47d595cabf2a",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/cardiacConditions",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_567748eb-e97d-43b9-a5d3-7ec9be8b19f8"
+    },
+    {
+      "id": "page_567748eb-e97d-43b9-a5d3-7ec9be8b19f8",
+      "title": "Chest Pain or Breathlessness",
+      "questions": [
+        {
+          "id": "chestPainMildActivity",
+          "type": "singleChoice",
+          "label": "Do you experience chest pain or breathlessness with mild activity?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "chestPainMildActivity": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "chestPainMildActivity"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/chestPainMildActivity",
+            "label": "Do you experience chest pain or breathlessness with mild activity?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_55cc8a46-2adf-4f50-a1d4-4a421d0a6b72",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/chestPainMildActivity",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_6d7eea89-deff-46c4-95e3-1c1bdafc3310"
+    },
+    {
+      "id": "page_6d7eea89-deff-46c4-95e3-1c1bdafc3310",
+      "title": "Nitrate Medicines",
+      "questions": [
+        {
+          "id": "nitrateMeds1",
+          "type": "singleChoice",
+          "label": "Are you taking nitrate medicines (Nitrolingual®, Nitro-Dur®, Imdur®)?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "nitrateMeds1": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "nitrateMeds1"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/nitrateMeds1",
+            "label": "Are you taking nitrate medicines (Nitrolingual®, Nitro-Dur®, Imdur®)?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_bfa8ab13-f25d-4299-9de7-4cf7312f924d",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/nitrateMeds1",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_29f66e64-3fce-4bc7-a5b2-dacb19d37b3a"
+    },
+    {
+      "id": "page_29f66e64-3fce-4bc7-a5b2-dacb19d37b3a",
+      "title": "Penile Symptoms",
+      "questions": [
+        {
+          "id": "penileLumpCurve",
+          "type": "singleChoice",
+          "label": "Do you have a painful lump, curve or bend in the penis?",
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "penileLumpCurve": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "penileLumpCurve"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/penileLumpCurve",
+            "label": "Do you have a painful lump, curve or bend in the penis?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_68ee00d3-f7cc-4c15-8f76-c6a2339d0a6a",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/penileLumpCurve",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "page_2eb7c5e8-f15e-4029-8244-7816c697e35c"
+    },
+    {
+      "id": "page_2eb7c5e8-f15e-4029-8244-7816c697e35c",
+      "title": "Physical Activity: Walking",
+      "questions": [
+        {
+          "id": "parWalk",
+          "type": "singleChoice",
+          "label": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?",
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "parWalk": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "parWalk"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/parWalk",
+            "label": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications."
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_cd4251d6-bd2c-47ed-8664-c02d92a95058"
+    },
+    {
+      "id": "page_cd4251d6-bd2c-47ed-8664-c02d92a95058",
+      "title": "Physical Activity: Stairs",
+      "questions": [
+        {
+          "id": "parStairs",
+          "type": "singleChoice",
+          "label": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?",
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "parStairs": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "parStairs"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/parStairs",
+            "label": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications."
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_a0ecd407-ebad-469e-884c-2b860b0a81a2"
+    },
+    {
+      "id": "page_a0ecd407-ebad-469e-884c-2b860b0a81a2",
+      "title": "Physical Activity: Groceries",
+      "questions": [
+        {
+          "id": "parGroceries",
+          "type": "singleChoice",
+          "label": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?",
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "parGroceries": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "parGroceries"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/parGroceries",
+            "label": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications."
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_33bb7855-9ef4-484f-a6f6-70e7c334489c"
+    },
+    {
+      "id": "page_33bb7855-9ef4-484f-a6f6-70e7c334489c",
+      "title": "Nitrate Medication Confirmation",
+      "questions": [
+        {
+          "id": "nitrateMeds2",
+          "type": "singleChoice",
+          "label": "Are you currently using any nitrate medication for heart or chest pain?",
+          "description": "DO NOT use ED medications if you are currently taking any nitrate medicines. They can cause a dangerous drop in blood pressure when combined.",
+          "required": true,
+          "choices": [
+            "Yes",
+            "No"
+          ]
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "nitrateMeds2": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "nitrateMeds2"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/nitrateMeds2",
+            "label": "Are you currently using any nitrate medication for heart or chest pain?",
+            "options": {
+              "description": "DO NOT use ED medications if you are currently taking any nitrate medicines. They can cause a dangerous drop in blood pressure when combined."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_fe52249e-5b5f-42b5-9d82-42e6abc660e7",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/nitrateMeds2",
+                "operator": "eq",
+                "value": "Yes"
+              }
+            ]
+          },
+          "goToPageId": "end"
+        }
+      ],
+      "defaultNextPageId": "end"
+    }
+  ],
+  "scoring": {
+    "enabled": true,
+    "categories": [
+      {
+        "id": "cat_safety",
+        "label": "Safety Check"
+      },
+      {
+        "id": "cat_par",
+        "label": "Physical Activity Readiness"
+      },
+      {
+        "id": "cat_med",
+        "label": "Medication Safety"
+      }
+    ],
+    "passThreshold": 11
+  },
+  "scoringMap": {
+    "#/properties/sexAtBirth": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "Male": 1,
+        "Female": 0
+      }
+    },
+    "#/properties/heartAttackStent": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/stroke": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/cardiacConditions": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/chestPainMildActivity": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/nitrateMeds1": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/penileLumpCurve": {
+      "categoryId": "cat_safety",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    },
+    "#/properties/parWalk": {
+      "categoryId": "cat_par",
+      "optionScores": {
+        "Yes": 1,
+        "No": 0
+      }
+    },
+    "#/properties/parStairs": {
+      "categoryId": "cat_par",
+      "optionScores": {
+        "Yes": 1,
+        "No": 0
+      }
+    },
+    "#/properties/parGroceries": {
+      "categoryId": "cat_par",
+      "optionScores": {
+        "Yes": 1,
+        "No": 0
+      }
+    },
+    "#/properties/nitrateMeds2": {
+      "categoryId": "cat_med",
+      "optionScores": {
+        "No": 1,
+        "Yes": 0
+      }
+    }
+  }
+}
