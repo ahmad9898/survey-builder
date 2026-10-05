@@ -5,6 +5,7 @@ import {
   Box,
   Card,
   Checkbox,
+  Chip,
   Collapse,
   Divider,
   FormControlLabel,
@@ -13,6 +14,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useTheme,
 } from '@mui/material';
 import Button from '@mui/material/Button';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -21,8 +23,10 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import type { QuestionDef, Survey } from '../../types/survey';
 import { questionTypeMeta } from '../questionTypes';
+import { QUESTION_TYPE_ICONS } from '../questionTypeIcons';
 import { useBuilderStore } from '../store/builderStore';
 import { ConditionEditor, type FieldOption } from './ConditionEditor';
 import { ScoringEditor } from './ScoringEditor';
@@ -125,7 +129,78 @@ function availableFieldsFor(survey: Survey, questionId: string): FieldOption[] {
   return fields;
 }
 
-export function QuestionCard({ question }: { question: QuestionDef }) {
+// A Label question has no answer field, so its "content" is what it displays,
+// not a form control to fill in. Rendered inline (not gated behind the
+// settings Collapse) so the canvas reads as a preview of the live survey,
+// matching the warning-banner treatment for a page that blocks submission.
+function LabelPreview({ question, isBlockingPage }: { question: QuestionDef; isBlockingPage: boolean }) {
+  const theme = useTheme();
+
+  if (isBlockingPage) {
+    const tokens = theme.custom.warningBanner;
+    return (
+      <Box
+        sx={{
+          mx: 1.5,
+          mb: 1.5,
+          p: 1.5,
+          borderRadius: 1.5,
+          bgcolor: tokens.bg,
+          border: '1px solid',
+          borderColor: tokens.border,
+          display: 'flex',
+          gap: 1.25,
+        }}
+      >
+        <Box
+          sx={{
+            flexShrink: 0,
+            width: 28,
+            height: 28,
+            borderRadius: 1,
+            bgcolor: tokens.iconBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <WarningAmberIcon sx={{ fontSize: 18, color: tokens.icon }} />
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="subtitle2" sx={{ color: tokens.textStrong, fontWeight: 700 }}>
+            {question.label || '(untitled)'}
+          </Typography>
+          {question.description && (
+            <Typography variant="body2" sx={{ color: tokens.text, mt: 0.25 }}>
+              {question.description}
+            </Typography>
+          )}
+        </Box>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mx: 1.5, mb: 1.5 }}>
+      <Typography variant="subtitle1" fontWeight={700}>
+        {question.label || '(untitled)'}
+      </Typography>
+      {question.description && (
+        <Typography variant="body2" color="text.secondary">
+          {question.description}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+export function QuestionCard({
+  question,
+  isBlockingPage = false,
+}: {
+  question: QuestionDef;
+  isBlockingPage?: boolean;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: question.id,
     data: { source: 'canvas-item' },
@@ -163,86 +238,105 @@ export function QuestionCard({ question }: { question: QuestionDef }) {
     cardRef.current = node;
   };
 
+  const TypeIcon = QUESTION_TYPE_ICONS[question.type];
+
   return (
     <Card
       ref={setRefs}
       style={style}
       variant="outlined"
       sx={{
-        borderColor: expanded ? 'primary.main' : undefined,
+        borderColor: expanded ? 'primary.main' : 'divider',
         borderWidth: expanded ? 2 : 1,
+        '&:hover .q-actions, &:focus-within .q-actions': { opacity: 1 },
       }}
     >
-      <Stack direction="row" alignItems="center">
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ pr: 1 }}>
         <Tooltip title="Drag to reorder">
           <IconButton size="small" {...listeners} {...attributes} sx={{ cursor: 'grab' }}>
             <DragIndicatorIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Box onClick={toggleExpanded} sx={{ flex: 1, cursor: 'pointer', px: 1, py: 1.5, minWidth: 0 }}>
-          <Typography variant="body2" fontWeight={500} noWrap>
+        <Chip
+          size="small"
+          icon={<TypeIcon sx={{ fontSize: 15 }} />}
+          label={meta.paletteLabel}
+          sx={{ bgcolor: 'action.hover', color: 'text.secondary', flexShrink: 0 }}
+        />
+        <Box onClick={toggleExpanded} sx={{ flex: 1, cursor: 'pointer', py: 1.5, minWidth: 0 }}>
+          <Typography variant="body2" fontWeight={600} noWrap>
             {question.label || '(untitled question)'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {meta.paletteLabel}
-            {question.required ? ' · required' : ''}
-            {question.visibilityRule ? ' · conditional' : ''}
-          </Typography>
+          {(question.required || question.visibilityRule) && (
+            <Typography variant="caption" color="text.secondary">
+              {[question.required && 'Required', question.visibilityRule && 'Conditional']
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
+          )}
         </Box>
-        <Tooltip title="Duplicate question">
-          <IconButton
-            size="small"
-            aria-label="Duplicate question"
-            onClick={() => duplicateQuestion(question.id)}
-          >
-            <ContentCopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Delete question">
-          <IconButton
-            size="small"
-            aria-label="Delete question"
-            onClick={() => {
-              if (window.confirm(`Delete "${question.label || 'this question'}"?`)) {
-                removeQuestion(question.id);
-              }
-            }}
-          >
-            <DeleteOutlineIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Stack direction="row" className="q-actions" sx={{ opacity: 0, transition: 'opacity 0.15s' }}>
+          <Tooltip title="Duplicate question">
+            <IconButton
+              size="small"
+              aria-label="Duplicate question"
+              onClick={() => duplicateQuestion(question.id)}
+            >
+              <ContentCopyIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete question">
+            <IconButton
+              size="small"
+              aria-label="Delete question"
+              onClick={() => {
+                if (window.confirm(`Delete "${question.label || 'this question'}"?`)) {
+                  removeQuestion(question.id);
+                }
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
         <IconButton
           size="small"
           onClick={toggleExpanded}
           aria-label={expanded ? 'Collapse question' : 'Expand question'}
-          sx={{ mr: 0.5, transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+          sx={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
         >
           <ExpandMoreIcon fontSize="small" />
         </IconButton>
       </Stack>
+
+      {isLabel && (
+        <>
+          <LabelPreview question={question} isBlockingPage={isBlockingPage} />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mx: 1.5, mb: 1.5 }}>
+            Informational label · no response required
+          </Typography>
+        </>
+      )}
 
       <Collapse in={expanded} unmountOnExit>
         <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
           <Divider sx={{ mb: 2 }} />
           <Stack spacing={2}>
             <TextField
-              label={isLabel ? 'Text' : 'Label'}
+              label={isLabel ? 'Heading' : 'Label'}
               size="small"
               fullWidth
-              multiline={isLabel}
               value={question.label}
               onChange={(e) => updateQuestion(question.id, { label: e.target.value })}
             />
-            {!isLabel && (
-              <TextField
-                label="Description (optional)"
-                size="small"
-                fullWidth
-                multiline
-                value={question.description ?? ''}
-                onChange={(e) => updateQuestion(question.id, { description: e.target.value })}
-              />
-            )}
+            <TextField
+              label={isLabel ? 'Body text (optional)' : 'Description (optional)'}
+              size="small"
+              fullWidth
+              multiline
+              value={question.description ?? ''}
+              onChange={(e) => updateQuestion(question.id, { description: e.target.value })}
+            />
             {!isLabel && (
               <FormControlLabel
                 control={

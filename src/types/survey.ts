@@ -85,6 +85,11 @@ export interface SurveyPage {
   uischema: UISchemaElement; // compiled UI Schema (kept in sync by schemaCompiler)
   branch: BranchRule[];
   defaultNextPageId: string | 'end';
+  // Marks a terminal/notice page (e.g. a disqualification or referral
+  // notice) as halting the flow rather than a normal completed submission.
+  // Purely descriptive for the flow map / sidebar; doesn't change runtime
+  // navigation, which already stops at defaultNextPageId === 'end'.
+  blocksSubmission?: boolean;
 }
 
 export interface Survey {

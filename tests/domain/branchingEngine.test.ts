@@ -66,6 +66,40 @@ describe('resolveNextPage', () => {
     expect(resolveNextPage(page, { done: true })).toBe('end');
   });
 
+  it('reordering the rules array changes which overlapping rule wins (order is real, not cosmetic)', () => {
+    const rules: SurveyPage['branch'] = [
+      {
+        id: 'r1',
+        when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/x', operator: 'gte', value: 0 }] },
+        goToPageId: 'page_low',
+      },
+      {
+        id: 'r2',
+        when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/x', operator: 'gte', value: 10 }] },
+        goToPageId: 'page_high',
+      },
+    ];
+    const original = makePage({ branch: rules });
+    const reordered = makePage({ branch: [rules[1], rules[0]] });
+    // Both rules match x=15; whichever is listed first wins, in either order.
+    expect(resolveNextPage(original, { x: 15 })).toBe('page_low');
+    expect(resolveNextPage(reordered, { x: 15 })).toBe('page_high');
+  });
+
+  it("the default (Otherwise) edge is evaluated last regardless of the branch array's order", () => {
+    const page = makePage({
+      defaultNextPageId: 'page_fallback',
+      branch: [
+        {
+          id: 'r1',
+          when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/x', operator: 'eq', value: 1 }] },
+          goToPageId: 'page_match',
+        },
+      ],
+    });
+    expect(resolveNextPage(page, { x: 999 })).toBe('page_fallback');
+  });
+
   it('resolves a rule referencing a field from an earlier page (flat answers object)', () => {
     const page = makePage({
       branch: [

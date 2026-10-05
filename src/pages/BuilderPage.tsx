@@ -3,6 +3,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom';
 import { Box, CircularProgress, Link, Typography } from '@mui/material';
 import { BuilderLayout } from '../builder/components/BuilderLayout';
 import { useBuilderStore } from '../builder/store/builderStore';
+import { useFlowLayoutStore } from '../builder/store/flowLayoutStore';
 import { surveyRepository } from '../storage/surveyRepository';
 
 export type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'error';
@@ -11,6 +12,7 @@ export function BuilderPage() {
   const { surveyId } = useParams<{ surveyId: string }>();
   const loadSurvey = useBuilderStore((s) => s.loadSurvey);
   const survey = useBuilderStore((s) => s.survey);
+  const loadFlowLayout = useFlowLayoutStore((s) => s.loadForSurvey);
   const [status, setStatus] = useState<'loading' | 'ready' | 'not-found'>('loading');
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,6 +36,7 @@ export function BuilderPage() {
       if (cancelled) return;
       if (found) {
         loadSurvey(found);
+        void loadFlowLayout(found.id);
         setStatus('ready');
       } else {
         setStatus('not-found');
@@ -42,7 +45,7 @@ export function BuilderPage() {
     return () => {
       cancelled = true;
     };
-  }, [surveyId, loadSurvey]);
+  }, [surveyId, loadSurvey, loadFlowLayout]);
 
   const saveNow = async () => {
     if (saveTimer.current) clearTimeout(saveTimer.current);

@@ -50,7 +50,7 @@ function emptyLeaf(availableFields: FieldOption[]): ConditionLeaf {
 // Renders the right value input for the referenced field's type, so a
 // comparison actually matches the value type stored in answers (a boolean
 // field must compare against a real boolean, not the string "true").
-function ValueInput({
+export function ValueInput({
   leaf,
   field,
   onChange,

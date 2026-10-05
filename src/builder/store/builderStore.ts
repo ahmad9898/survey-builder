@@ -1,8 +1,25 @@
 import { create } from 'zustand';
-import type { ConditionGroup, QuestionDef, QuestionType, ScoringEntry, Survey, SurveyPage } from '../../types/survey';
+import type { BranchRule, ConditionGroup, QuestionDef, QuestionType, ScoringEntry, Survey, SurveyPage } from '../../types/survey';
 import { compilePage } from '../../domain/schemaCompiler';
+import { collapseSingleEdge, pageHasNoFallbackRisk } from '../../domain/branchInvariant';
 import { newFieldId, newId } from '../../lib/id';
 import { questionTypeMeta } from '../questionTypes';
+import { useFlowLayoutStore } from './flowLayoutStore';
+import { useSnackbarStore } from './snackbarStore';
+
+// Called after every branch-topology mutation (see setBranchRules /
+// setDefaultNextPage below) so the warning fires identically no matter which
+// UI surface triggered the change -- the flow map's popover or the
+// sidebar's Branching tab both funnel through these same two setters.
+function warnIfNoFallback(page: SurveyPage): void {
+  if (pageHasNoFallbackRisk(page)) {
+    useSnackbarStore
+      .getState()
+      .showWarning(
+        `"${page.title}" has ${page.branch.length} conditions but no fallback -- a respondent who matches none of them would have nowhere to go.`,
+      );
+  }
+}
 
 function recompilePage(page: SurveyPage): SurveyPage {
   const { schema, uischema } = compilePage(page);
@@ -36,20 +53,41 @@ export function newSurvey(title = 'Untitled survey'): Survey {
   };
 }
 
+export type BuilderViewMode = 'builder' | 'flow';
+
 interface BuilderState {
   survey: Survey;
-  selectedPageId: string;
+  // Nullable so "nothing is actively focused" is representable in the same
+  // single field that drives the sidebar's highlight, the Builder canvas,
+  // and the flow map's ring + panel -- there is deliberately no second,
+  // parallel "is a node selected" flag that could disagree with this one.
+  selectedPageId: string | null;
   selectedQuestionId: string | null;
+  viewMode: BuilderViewMode;
 
   loadSurvey: (survey: Survey) => void;
   setSurveyTitle: (title: string) => void;
+  setViewMode: (mode: BuilderViewMode) => void;
 
   addPage: () => void;
+  duplicatePage: (pageId: string) => void;
   removePage: (pageId: string) => void;
+  reorderPage: (fromIndex: number, toIndex: number) => void;
+  setStartPage: (pageId: string) => void;
   selectPage: (pageId: string) => void;
+  clearSelectedPage: () => void;
   setPageTitle: (pageId: string, title: string) => void;
+  setPageBlocksSubmission: (pageId: string, blocksSubmission: boolean) => void;
   setDefaultNextPage: (pageId: string, nextPageId: string | 'end') => void;
   setBranchRules: (pageId: string, branch: SurveyPage['branch']) => void;
+  addBranchRule: (pageId: string, rule: BranchRule) => void;
+  updateBranchRule: (pageId: string, ruleId: string, patch: Partial<BranchRule>) => void;
+  removeBranchRule: (pageId: string, ruleId: string) => void;
+  // Evaluation order for a page's conditioned rules IS their array order
+  // (see resolveNextPage: first match wins, top to bottom) -- this is the
+  // only way that order is ever changed, distinct from reorderPage, which is
+  // deliberately cosmetic-only.
+  reorderBranchRule: (pageId: string, fromIndex: number, toIndex: number) => void;
 
   addQuestion: (pageId: string, type: QuestionType, atIndex?: number) => void;
   duplicateQuestion: (questionId: string) => void;
@@ -85,6 +123,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   survey: initialSurvey,
   selectedPageId: initialSurvey.pages[0].id,
   selectedQuestionId: null,
+  viewMode: 'builder',
   history: { past: [], future: [] },
 
   loadSurvey: (survey) => {
@@ -95,7 +134,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
     isTimeTraveling = true;
     set({
       survey,
-      selectedPageId: survey.pages[0]?.id ?? '',
+      selectedPageId: survey.pages[0]?.id ?? null,
       selectedQuestionId: null,
       history: { past: [], future: [] },
     });
@@ -105,14 +144,17 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
   setSurveyTitle: (title) =>
     set((s) => ({ survey: { ...s.survey, title, updatedAt: new Date().toISOString() } })),
 
+  setViewMode: (mode) => set({ viewMode: mode }),
+
   addPage: () =>
     set((s) => {
+      // Deliberately NOT wired into the default flow: a page added this way
+      // (from the sidebar or the flow map -- one action, so both stay
+      // consistent) starts standalone and unreachable until the author
+      // explicitly drags a connection to or from it. Auto-chaining it in
+      // would silently commit the author to a flow order they never chose.
       const page = emptyPage(`Page ${s.survey.pages.length + 1}`);
-      const pages = [...s.survey.pages];
-      // wire the previously-last page's default next to the new page, keeping a linear default flow
-      const last = pages[pages.length - 1];
-      if (last) pages[pages.length - 1] = { ...last, defaultNextPageId: page.id };
-      pages.push(page);
+      const pages = [...s.survey.pages, page];
       return {
         survey: { ...s.survey, pages, updatedAt: new Date().toISOString() },
         selectedPageId: page.id,
@@ -130,13 +172,74 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
         branch: p.branch.filter((b) => b.goToPageId !== pageId),
       }));
       const startPageId = s.survey.startPageId === pageId ? fixed[0].id : s.survey.startPageId;
+      // The deleted page's saved canvas position (if any) is meaningless now;
+      // lives in a separate store/Dexie table, so it needs its own cleanup.
+      useFlowLayoutStore.getState().clearOverride(pageId);
       return {
         survey: { ...s.survey, pages: fixed, startPageId, updatedAt: new Date().toISOString() },
         selectedPageId: s.selectedPageId === pageId ? fixed[0].id : s.selectedPageId,
       };
     }),
 
+  reorderPage: (fromIndex, toIndex) =>
+    set((s) => {
+      const pages = [...s.survey.pages];
+      const [moved] = pages.splice(fromIndex, 1);
+      pages.splice(toIndex, 0, moved);
+      return { survey: { ...s.survey, pages, updatedAt: new Date().toISOString() } };
+    }),
+
+  // Copies a page's questions (with fresh ids, since fields are unique
+  // survey-wide) and any scoring configured for them, inserted right after
+  // the original. Like addPage, the copy starts unconnected -- deliberately
+  // NOT wired into the flow here, so this stays the one place a page gets
+  // created; whoever calls this (e.g. a dot's "Duplicate page" menu item)
+  // wires it in afterward through the same connect logic as a fresh page.
+  duplicatePage: (pageId) =>
+    set((s) => {
+      const original = s.survey.pages.find((p) => p.id === pageId);
+      if (!original) return s;
+      const usedFieldIds = allFieldIds(s.survey);
+      const scoringMap = { ...(s.survey.scoringMap ?? {}) };
+      const questions = original.questions.map((q) => {
+        const copyId = newFieldId(usedFieldIds, q.type);
+        usedFieldIds.add(copyId);
+        // scoringMap is keyed by JSON Schema scope ("#/properties/<id>"), not
+        // the raw question id -- see setScoringForQuestion.
+        const existingScoring = s.survey.scoringMap?.[`#/properties/${q.id}`];
+        if (existingScoring) scoringMap[`#/properties/${copyId}`] = existingScoring;
+        return { ...q, id: copyId };
+      });
+      const copy = recompilePage({
+        ...original,
+        id: newId('page'),
+        title: `${original.title} (copy)`,
+        questions,
+        branch: [],
+        defaultNextPageId: 'end',
+      });
+      const index = s.survey.pages.findIndex((p) => p.id === pageId);
+      const pages = [...s.survey.pages];
+      pages.splice(index + 1, 0, copy);
+      return {
+        survey: { ...s.survey, pages, scoringMap, updatedAt: new Date().toISOString() },
+        selectedPageId: copy.id,
+        selectedQuestionId: null,
+      };
+    }),
+
+  // The only intentional way to change where the survey begins -- reordering
+  // the list is deliberately cosmetic-only (see reorderPage) and never
+  // touches this, so without an explicit action startPageId could otherwise
+  // only ever change as a side effect of deleting the current start page.
+  setStartPage: (pageId) =>
+    set((s) => ({
+      survey: { ...s.survey, startPageId: pageId, updatedAt: new Date().toISOString() },
+    })),
+
   selectPage: (pageId) => set({ selectedPageId: pageId, selectedQuestionId: null }),
+
+  clearSelectedPage: () => set({ selectedPageId: null, selectedQuestionId: null }),
 
   setPageTitle: (pageId, title) =>
     set((s) => ({
@@ -147,23 +250,101 @@ export const useBuilderStore = create<BuilderState>((set, get) => ({
       },
     })),
 
-  setDefaultNextPage: (pageId, nextPageId) =>
+  setPageBlocksSubmission: (pageId, blocksSubmission) =>
     set((s) => ({
       survey: {
         ...s.survey,
         updatedAt: new Date().toISOString(),
-        pages: s.survey.pages.map((p) =>
-          p.id === pageId ? { ...p, defaultNextPageId: nextPageId } : p,
-        ),
+        pages: s.survey.pages.map((p) => (p.id === pageId ? { ...p, blocksSubmission } : p)),
       },
     })),
 
+  // The one place a page's default ("Otherwise") edge is written. Runs the
+  // same collapse-to-one-edge invariant as removeBranchRule: clearing the
+  // default can leave a single conditioned branch rule as the page's only
+  // outgoing edge, which must revert to being plain/condition-free too.
+  setDefaultNextPage: (pageId, nextPageId) =>
+    set((s) => {
+      const page = s.survey.pages.find((p) => p.id === pageId);
+      if (!page) return s;
+      const updated = collapseSingleEdge({ ...page, defaultNextPageId: nextPageId });
+      warnIfNoFallback(updated);
+      return {
+        survey: {
+          ...s.survey,
+          updatedAt: new Date().toISOString(),
+          pages: s.survey.pages.map((p) => (p.id === pageId ? updated : p)),
+        },
+      };
+    }),
+
+  // Shared by addBranchRule/updateBranchRule/removeBranchRule below.
+  // Deliberately does NOT run collapseSingleEdge itself -- adding a rule can
+  // legitimately bring a page to exactly one (conditioned) edge, and that
+  // must stay editable rather than being silently absorbed into "Otherwise"
+  // the instant it's created (see collapseSingleEdge's own comment).
+  // removeBranchRule calls collapseSingleEdge itself, separately, since only
+  // removal should trigger that reversion.
   setBranchRules: (pageId, branch) =>
+    set((s) => {
+      const page = s.survey.pages.find((p) => p.id === pageId);
+      if (!page) return s;
+      const updated = { ...page, branch };
+      warnIfNoFallback(updated);
+      return {
+        survey: {
+          ...s.survey,
+          updatedAt: new Date().toISOString(),
+          pages: s.survey.pages.map((p) => (p.id === pageId ? updated : p)),
+        },
+      };
+    }),
+
+  addBranchRule: (pageId, rule) => {
+    const page = get().survey.pages.find((p) => p.id === pageId);
+    if (!page) return;
+    get().setBranchRules(pageId, [...page.branch, rule]);
+  },
+
+  updateBranchRule: (pageId, ruleId, patch) => {
+    const page = get().survey.pages.find((p) => p.id === pageId);
+    if (!page) return;
+    get().setBranchRules(
+      pageId,
+      page.branch.map((r) => (r.id === ruleId ? { ...r, ...patch } : r)),
+    );
+  },
+
+  // The only mutator that can bring edge count DOWN to one -- so this is the
+  // one that needs to check whether the sole remaining edge should revert to
+  // being the plain, condition-free default (see collapseSingleEdge).
+  removeBranchRule: (pageId, ruleId) => {
+    const page = get().survey.pages.find((p) => p.id === pageId);
+    if (!page) return;
+    const filtered = page.branch.filter((r) => r.id !== ruleId);
+    const updated = collapseSingleEdge({ ...page, branch: filtered });
+    warnIfNoFallback(updated);
     set((s) => ({
       survey: {
         ...s.survey,
         updatedAt: new Date().toISOString(),
-        pages: s.survey.pages.map((p) => (p.id === pageId ? { ...p, branch } : p)),
+        pages: s.survey.pages.map((p) => (p.id === pageId ? updated : p)),
+      },
+    }));
+  },
+
+  reorderBranchRule: (pageId, fromIndex, toIndex) =>
+    set((s) => ({
+      survey: {
+        ...s.survey,
+        updatedAt: new Date().toISOString(),
+        pages: s.survey.pages.map((p) => {
+          if (p.id !== pageId) return p;
+          const branch = [...p.branch];
+          const [moved] = branch.splice(fromIndex, 1);
+          branch.splice(toIndex, 0, moved);
+          return { ...p, branch };
+        }),
       },
     })),
 

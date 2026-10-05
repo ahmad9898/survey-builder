@@ -22,7 +22,12 @@ export function AddQuestionMenu({ pageId }: { pageId: string }) {
 
   return (
     <>
-      <Button variant="outlined" startIcon={<AddIcon />} onClick={handleOpen} sx={{ alignSelf: 'flex-start' }}>
+      <Button
+        fullWidth
+        startIcon={<AddIcon fontSize="small" />}
+        onClick={handleOpen}
+        sx={{ border: '1px dashed', borderColor: 'divider', color: 'text.secondary', py: 1.25 }}
+      >
         Add question
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>

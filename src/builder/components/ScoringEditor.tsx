@@ -6,7 +6,7 @@ interface ScoringEditorProps {
   question: QuestionDef;
 }
 
-const SCOREABLE_TYPES = ['singleChoice', 'multipleChoice', 'rating', 'nps', 'number', 'boolean'];
+export const SCOREABLE_TYPES = ['singleChoice', 'multipleChoice', 'rating', 'nps', 'number', 'boolean'];
 
 export function ScoringEditor({ question }: ScoringEditorProps) {
   const survey = useBuilderStore((s) => s.survey);
