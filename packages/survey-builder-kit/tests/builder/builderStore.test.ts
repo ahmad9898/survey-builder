@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { newSurvey, useBuilderStore } from '../../src/builder/store/builderStore';
-import { useSnackbarStore } from '../../src/builder/store/snackbarStore';
+import { newSurvey, createBuilderStore, type BuilderStoreApi } from '../../src/builder/store/builderStore';
+import { createFlowLayoutStore } from '../../src/builder/store/flowLayoutStore';
+import { createSnackbarStore, type SnackbarStoreApi } from '../../src/builder/store/snackbarStore';
 import type { BranchRule } from '../../src/types/survey';
+
+// A fresh store per test, built the same way BuilderStoreProvider does --
+// there's no module-level singleton to reach for anymore (that's the whole
+// point of the store-per-instance refactor), so tests construct their own
+// instance via the same factory the app/library actually use.
+let useBuilderStore: BuilderStoreApi;
+let useSnackbarStore: SnackbarStoreApi;
 
 function pageIds() {
   return useBuilderStore.getState().survey.pages.map((p) => p.id);
 }
 
 beforeEach(() => {
-  useBuilderStore.getState().loadSurvey(newSurvey());
-  useSnackbarStore.getState().clear();
+  useSnackbarStore = createSnackbarStore();
+  useBuilderStore = createBuilderStore({ flowLayoutStore: createFlowLayoutStore(), snackbarStore: useSnackbarStore }, newSurvey());
 });
 
 describe('addPage', () => {
@@ -316,5 +324,46 @@ describe('setPageBlocksSubmission', () => {
     const pages = useBuilderStore.getState().survey.pages;
     expect(pages.find((p) => p.id === firstId)!.blocksSubmission).toBeFalsy();
     expect(pages.find((p) => p.id === secondId)!.blocksSubmission).toBe(true);
+  });
+
+  it('actually routes the page to End of survey, not just labels it', () => {
+    useBuilderStore.getState().addPage();
+    const [firstId, secondId] = pageIds();
+    useBuilderStore.getState().setDefaultNextPage(firstId, secondId);
+    expect(useBuilderStore.getState().survey.pages.find((p) => p.id === firstId)!.defaultNextPageId).toBe(secondId);
+
+    useBuilderStore.getState().setPageBlocksSubmission(firstId, true);
+
+    expect(useBuilderStore.getState().survey.pages.find((p) => p.id === firstId)!.defaultNextPageId).toBe('end');
+  });
+
+  it('leaves an existing branch rule in place -- only the default edge changes', () => {
+    useBuilderStore.getState().addPage();
+    const [firstId, secondId] = pageIds();
+    const rule: BranchRule = {
+      id: 'r1',
+      when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/x', operator: 'eq', value: true }] },
+      goToPageId: secondId,
+    };
+    useBuilderStore.getState().addBranchRule(firstId, rule);
+
+    useBuilderStore.getState().setPageBlocksSubmission(firstId, true);
+
+    const page = useBuilderStore.getState().survey.pages.find((p) => p.id === firstId)!;
+    expect(page.branch).toEqual([rule]);
+    expect(page.defaultNextPageId).toBe('end');
+  });
+
+  it('does not change defaultNextPageId when turning the flag back off', () => {
+    useBuilderStore.getState().addPage();
+    const [firstId] = pageIds();
+    useBuilderStore.getState().setPageBlocksSubmission(firstId, true);
+    expect(useBuilderStore.getState().survey.pages.find((p) => p.id === firstId)!.defaultNextPageId).toBe('end');
+
+    useBuilderStore.getState().setPageBlocksSubmission(firstId, false);
+
+    const page = useBuilderStore.getState().survey.pages.find((p) => p.id === firstId)!;
+    expect(page.blocksSubmission).toBe(false);
+    expect(page.defaultNextPageId).toBe('end'); // not auto-restored; a manual "Otherwise, go to" choice if the author wants it to lead elsewhere again
   });
 });

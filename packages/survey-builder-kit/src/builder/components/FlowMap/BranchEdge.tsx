@@ -4,7 +4,7 @@ import { Box, IconButton, Tooltip, useTheme } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 
 export interface BranchEdgeData extends Record<string, unknown> {
-  variant: 'positive' | 'neutral';
+  variant: 'positive' | 'neutral' | 'disqualifying';
   isDefault: boolean;
   ruleId?: string;
   color: string;

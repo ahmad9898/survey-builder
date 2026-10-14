@@ -75,6 +75,27 @@ export interface QuestionDef {
   maxYears?: number; // for date: maximum age in years, computed against today at answer time
   yearsMessage?: string; // custom error shown when minYears/maxYears is violated
   visibilityRule?: ConditionGroup | null;
+  // Per-option disqualification, for singleChoice/multipleChoice -- keyed by
+  // the option's own string value (from `choices`); the value is the
+  // inline notice shown if that option is selected, matching the same
+  // title + body shape as the warning-banner treatment used elsewhere
+  // (e.g. a blocksSubmission page's Label question). Distinct from a page's
+  // `blocksSubmission`: that's a whole dedicated notice page reached via a
+  // branching rule; this is one specific answer on an otherwise-normal
+  // question that should block Continue/Submit WITHOUT navigating anywhere
+  // -- the respondent stays on this question. Deliberately not a richer
+  // per-option object shape on `choices` itself (which stays a plain
+  // string[]) so this doesn't ripple into the schema compiler,
+  // ConditionEditor, ScoringEditor, or every choice-rendering control that
+  // already treats choices as strings. AJV never sees this -- it's
+  // UI-schema metadata only, consulted by the Builder's options list, the
+  // runner, and the flow map, never by schema validation.
+  disqualifyingOptions?: Record<string, DisqualifyingNotice>;
+}
+
+export interface DisqualifyingNotice {
+  title: string;
+  body?: string;
 }
 
 export interface SurveyPage {
@@ -87,15 +108,26 @@ export interface SurveyPage {
   defaultNextPageId: string | 'end';
   // Marks a terminal/notice page (e.g. a disqualification or referral
   // notice) as halting the flow rather than a normal completed submission.
-  // Purely descriptive for the flow map / sidebar; doesn't change runtime
-  // navigation, which already stops at defaultNextPageId === 'end'.
+  // Setting this via the builder (setPageBlocksSubmission) also points the
+  // page's own defaultNextPageId at 'end', so checking it actually stops
+  // the flow here, not just labels it -- a branch rule routing some OTHER
+  // answer elsewhere is untouched. Hand-authored survey JSON could still set
+  // this true with a defaultNextPageId other than 'end' (nothing enforces
+  // the pairing at the type level), so runtime navigation still only ever
+  // stops at an actual 'end', never on this flag alone.
   blocksSubmission?: boolean;
 }
+
+// Bumped when the Survey JSON shape changes in a way that would need a
+// migration -- distinct from `version`, which tracks edits to a single
+// survey's own content, not the shape of the document itself.
+export const CURRENT_SCHEMA_VERSION = 1;
 
 export interface Survey {
   id: string;
   title: string;
   description?: string;
+  schemaVersion: number;
   version: number;
   createdAt: string;
   updatedAt: string;

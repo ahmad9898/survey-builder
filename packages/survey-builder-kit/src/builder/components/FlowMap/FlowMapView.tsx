@@ -18,7 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Box, Button, Paper, Stack, Typography, useTheme } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { useBuilderStore } from '../../store/builderStore';
+import { useBuilderStore, useBuilderStoreApi } from '../../store/builderStore';
 import { useFlowLayoutStore } from '../../store/flowLayoutStore';
 import { useSnackbarStore } from '../../store/snackbarStore';
 import {
@@ -26,6 +26,7 @@ import {
   NODE_WIDTH,
   NODE_HEIGHT,
   START_NODE_ID,
+  DISQUALIFIED_NODE_ID,
   type FlowPageEdge,
   type FlowPosition,
 } from '../../../domain/flowLayout';
@@ -36,6 +37,7 @@ import { newId } from '../../../lib/id';
 import type { ConditionLeaf } from '../../../types/survey';
 import { PageNode, type PageNodeType } from './PageNode';
 import { StartNode } from './StartNode';
+import { DisqualifiedNode } from './DisqualifiedNode';
 import { BranchEdge, type BranchEdgeType } from './BranchEdge';
 import { RuleConditionPopover } from './RuleConditionPopover';
 import { FlowOverviewPanel } from './FlowOverviewPanel';
@@ -47,9 +49,13 @@ import { ConnectExistingPopover, type ConnectExistingState } from './ConnectExis
 // no page data and is never selectable/draggable/connectable -- it only ever
 // exists to mark survey.startPageId.
 export type StartNodeType = Node<Record<string, never>, 'startNode'>;
-type FlowNode = PageNodeType | StartNodeType;
+// Same shape/treatment as the Start pill, but for the shared "Disqualified"
+// terminal (see DISQUALIFIED_NODE_ID) -- only present when at least one
+// question somewhere has a disqualifying option.
+export type DisqualifiedNodeType = Node<Record<string, never>, 'disqualifiedNode'>;
+type FlowNode = PageNodeType | StartNodeType | DisqualifiedNodeType;
 
-const nodeTypes = { pageNode: PageNode, startNode: StartNode };
+const nodeTypes = { pageNode: PageNode, startNode: StartNode, disqualifiedNode: DisqualifiedNode };
 const edgeTypes = { branchEdge: BranchEdge };
 const SNAP_THRESHOLD = 90;
 
@@ -111,6 +117,12 @@ interface RuleEditorState {
 }
 
 export function FlowMapView() {
+  // For the handful of spots below that need the LATEST store state rather
+  // than this render's selector snapshot (e.g. reading the just-created
+  // page's id right after calling addPage() in the same handler) -- see
+  // handleConnect's comment on why a stale snapshot there is a real bug, not
+  // just a style preference.
+  const builderStoreApi = useBuilderStoreApi();
   const survey = useBuilderStore((s) => s.survey);
   const selectedPageId = useBuilderStore((s) => s.selectedPageId);
   const selectPage = useBuilderStore((s) => s.selectPage);
@@ -221,7 +233,12 @@ export function FlowMapView() {
   const [rfEdges, setRfEdges] = useState<BranchEdgeType[]>([]);
 
   const buildEdgeData = (e: FlowPageEdge) => {
-    const color = e.data.variant === 'positive' ? theme.palette.warning.main : theme.palette.text.disabled;
+    const color =
+      e.data.variant === 'disqualifying'
+        ? theme.custom.warningBanner.icon
+        : e.data.variant === 'positive'
+          ? theme.palette.warning.main
+          : theme.palette.text.disabled;
     return {
       id: e.id,
       source: e.source,
@@ -229,7 +246,14 @@ export function FlowMapView() {
       label: e.label,
       type: 'branchEdge' as const,
       reconnectable: true,
-      style: { stroke: color, strokeWidth: 1.75 },
+      // Dashed, distinctly from both the default-path (solid grey) and
+      // branching-rule (solid warning) edges -- a disqualifying option isn't
+      // a branching rule the author configured, it's derived from the
+      // question's own options.
+      style:
+        e.data.variant === 'disqualifying'
+          ? { stroke: color, strokeWidth: 1.75, strokeDasharray: '6 4' }
+          : { stroke: color, strokeWidth: 1.75 },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
       data: {
         ...e.data,
@@ -280,6 +304,18 @@ export function FlowMapView() {
           focusable: false,
         }
       : null;
+    const disqualifiedNode: DisqualifiedNodeType | null = layout.disqualifiedTerminal
+      ? {
+          id: layout.disqualifiedTerminal.id,
+          type: 'disqualifiedNode',
+          position: layout.disqualifiedTerminal.position,
+          data: {},
+          draggable: false,
+          selectable: false,
+          connectable: false,
+          focusable: false,
+        }
+      : null;
     const edges: BranchEdgeType[] = layout.edges.map((e) => ({
       ...buildEdgeData(e),
       selected: canvasSelection?.type === 'edge' && canvasSelection.id === e.id,
@@ -301,9 +337,31 @@ export function FlowMapView() {
           data: { variant: 'neutral', isDefault: false, color: theme.custom.successBanner.text },
         }
       : null;
+    const disqualifiedColor = theme.custom.warningBanner.icon;
+    const disqualifiedEdges: BranchEdgeType[] = (layout.disqualifiedTerminal?.edges ?? []).map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      targetHandle: 'target',
+      type: 'branchEdge',
+      label: e.label,
+      // No onLabelClick/onDeleteRequest: this edge is derived from the
+      // question's own disqualifyingOptions, not a standalone branch rule --
+      // removing it means un-flagging the option in the Builder's options
+      // list, not deleting an edge here.
+      selectable: false,
+      focusable: false,
+      deletable: false,
+      style: { stroke: disqualifiedColor, strokeWidth: 1.75, strokeDasharray: '6 4' },
+      markerEnd: { type: MarkerType.ArrowClosed, color: disqualifiedColor, width: 16, height: 16 },
+      data: { variant: 'disqualifying', isDefault: false, color: disqualifiedColor },
+    }));
 
-    setRfNodes(startNode ? [startNode, ...nodes] : nodes);
-    setRfEdges(startEdge ? [startEdge, ...edges] : edges);
+    const extraNodes: FlowNode[] = [];
+    if (startNode) extraNodes.push(startNode);
+    if (disqualifiedNode) extraNodes.push(disqualifiedNode);
+    setRfNodes([...extraNodes, ...nodes]);
+    setRfEdges([...(startEdge ? [startEdge] : []), ...disqualifiedEdges, ...edges]);
     // Deliberately NOT depending on selectedPageId/snapTargetId/canvasSelection/
     // pendingRenamePageId -- those are cheap overlays applied by the effect
     // below directly onto whatever rfNodes/rfEdges already holds (preserving
@@ -406,7 +464,7 @@ export function FlowMapView() {
     // component-level `survey` variable doesn't refresh) until after this
     // function returns -- validating against the stale value would reject
     // the page this very call just created as nonexistent.
-    const survey = useBuilderStore.getState().survey;
+    const survey = builderStoreApi.getState().survey;
     const validation = validateBranchTarget(survey, connection.source, connection.target);
     if (!validation.valid) {
       showError(validation.reason ?? 'That branch is not allowed.');
@@ -503,7 +561,7 @@ export function FlowMapView() {
     if (!dotMenu) return;
     const { pageId, handleType, anchorEl } = dotMenu;
     addPage();
-    const newPageId = useBuilderStore.getState().selectedPageId;
+    const newPageId = builderStoreApi.getState().selectedPageId;
     closeDotMenu();
     if (!newPageId) return;
     handleConnect(connectionForDot(pageId, handleType, newPageId), anchorEl);
@@ -513,7 +571,7 @@ export function FlowMapView() {
     if (!dotMenu) return;
     const { pageId, handleType, anchorEl } = dotMenu;
     duplicatePage(pageId);
-    const copyId = useBuilderStore.getState().selectedPageId;
+    const copyId = builderStoreApi.getState().selectedPageId;
     closeDotMenu();
     if (!copyId) return;
     handleConnect(connectionForDot(pageId, handleType, copyId), anchorEl);
@@ -646,7 +704,7 @@ export function FlowMapView() {
 
   const handleAddPage = () => {
     addPage();
-    const newPageId = useBuilderStore.getState().selectedPageId;
+    const newPageId = builderStoreApi.getState().selectedPageId;
     // The new node may land outside the current viewport (it's appended past
     // whatever the layout already fanned out); bring it into view *before*
     // triggering the rename auto-focus below, so there's no animated pan
@@ -694,7 +752,7 @@ export function FlowMapView() {
         isValidConnection={isValidConnection}
         onBeforeDelete={async ({ nodes: nodesToDelete, edges: edgesToDelete }) => {
           const approvedNodes = nodesToDelete.filter((n) => {
-            if (n.id === START_NODE_ID) return false; // not a real page; not selectable, but guard anyway
+            if (n.id === START_NODE_ID || n.id === DISQUALIFIED_NODE_ID) return false; // not a real page; not selectable, but guard anyway
             if (survey.pages.length <= 1) {
               showError('A survey needs at least one page.');
               return false;

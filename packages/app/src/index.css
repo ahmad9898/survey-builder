@@ -45,12 +45,23 @@
 /* The builder is a workspace/tool, not a content page: it needs the full
    viewport to lay out palette + canvas + property panel + preview side by
    side without clipping. BuilderPage toggles this class on #root instead of
-   narrowing every other route to fit the builder's needs. */
+   narrowing every other route to fit the builder's needs.
+
+   `height` (not just the base rule's `min-height`) is required here:
+   <SurveyBuilder> fills its container via `height: 100%` all the way down
+   (BuilderLayout's root, the Flow map's canvas, etc.), and CSS only resolves
+   a percentage height against an ancestor whose own height is "definite" --
+   a height derived purely from `min-height` several levels up does not
+   count, even though flexbox lays it out at a concrete pixel size. Without
+   this, the Flow map (and anything else sized via height:100%) silently
+   collapses to its content's natural height instead of filling the window,
+   intermittently clipping content with no error. */
 #root.builder-shell {
   width: 100%;
   max-width: none;
   border-inline: none;
   text-align: left;
+  height: 100svh;
 }
 
 body {

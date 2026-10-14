@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { forwardRef, useState, type ReactElement, type ReactNode, type Ref } from 'react';
 import {
   AppBar,
   Box,
   Chip,
+  Dialog,
   IconButton,
   ListItemIcon,
   ListItemText,
   Menu,
   MenuItem,
+  Slide,
   Stack,
   TextField,
   Toolbar,
@@ -17,8 +18,8 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import type { TransitionProps } from '@mui/material/transitions';
 import Button from '@mui/material/Button';
-import ArrowBackIosNewIcon from '@mui/icons-material/ArrowBackIosNew';
 import ViewAgendaOutlinedIcon from '@mui/icons-material/ViewAgendaOutlined';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import UndoIcon from '@mui/icons-material/Undo';
@@ -30,15 +31,17 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import DownloadIcon from '@mui/icons-material/Download';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useBuilderStore, type BuilderViewMode } from '../store/builderStore';
 import { exportJson } from '../../storage/fileIO';
 import { PreviewDrawer } from './PreviewDrawer';
-import type { SaveStatus } from '../../pages/BuilderPage';
+import type { SaveStatus } from '../useDraftAutosave';
+import { SurveyRunner } from '../../SurveyRunner';
 
 const SAVE_STATUS_META: Record<
   SaveStatus,
-  { label: string; icon: React.ReactNode; color: 'default' | 'success' | 'warning' | 'error' }
+  { label: string; icon: ReactNode; color: 'default' | 'success' | 'warning' | 'error' }
 > = {
   saved: { label: 'All changes saved', icon: <CloudDoneIcon fontSize="small" />, color: 'success' },
   unsaved: { label: 'Unsaved changes', icon: <CloudUploadIcon fontSize="small" />, color: 'warning' },
@@ -46,12 +49,24 @@ const SAVE_STATUS_META: Record<
   error: { label: 'Save failed — retry', icon: <ErrorOutlineIcon fontSize="small" />, color: 'error' },
 };
 
+const SlideUpTransition = forwardRef(function SlideUpTransition(
+  props: TransitionProps & { children: ReactElement },
+  ref: Ref<unknown>,
+) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
+
+// "Save status" here is this library's OWN internal local-draft autosave
+// (see useDraftAutosave) -- a crash-safety indicator, not a reflection of
+// whether the host has persisted onSave's payload anywhere. "Publish" is the
+// one action that hands the current survey JSON to the host via onSave;
+// everything else here (Preview, Export JSON, Undo/Redo) is self-contained.
 export function BuilderHeader({
   saveStatus,
-  onSaveNow,
+  onSave,
 }: {
   saveStatus: SaveStatus;
-  onSaveNow: () => void;
+  onSave: () => void;
 }) {
   const survey = useBuilderStore((s) => s.survey);
   const setSurveyTitle = useBuilderStore((s) => s.setSurveyTitle);
@@ -61,10 +76,17 @@ export function BuilderHeader({
   const redo = useBuilderStore((s) => s.redo);
   const canUndo = useBuilderStore((s) => s.history.past.length > 0);
   const canRedo = useBuilderStore((s) => s.history.future.length > 0);
-  const navigate = useNavigate();
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [previewDrawerOpen, setPreviewDrawerOpen] = useState(false);
+  // The full multi-page respondent preview used to be a route navigation
+  // (/run/:id) -- a library has no routes of its own to navigate to (and
+  // can't depend on react-router, which isn't a peer dependency), so this
+  // opens <SurveyRunner> in place instead. Same "see the real respondent
+  // flow" intent, no routing dependency -- and it's a real exercise of the
+  // library's own public SurveyRunner component, not a separate preview
+  // implementation.
+  const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
 
   const totalQuestions = survey.pages.reduce((sum, p) => sum + p.questions.length, 0);
   const statusMeta = SAVE_STATUS_META[saveStatus];
@@ -76,12 +98,6 @@ export function BuilderHeader({
       sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}
     >
       <Toolbar sx={{ height: 64, minHeight: '64px !important', gap: 1.5 }}>
-        <Tooltip title="Back to my surveys">
-          <IconButton component={RouterLink} to="/" size="small" aria-label="Back to my surveys">
-            <ArrowBackIosNewIcon sx={{ fontSize: 16 }} />
-          </IconButton>
-        </Tooltip>
-
         <Box sx={{ minWidth: 0 }}>
           <Stack direction="row" alignItems="center" spacing={1}>
             <TextField
@@ -130,7 +146,7 @@ export function BuilderHeader({
           size="small"
           variant="outlined"
           color={statusMeta.color === 'default' ? undefined : statusMeta.color}
-          icon={statusMeta.icon as React.ReactElement}
+          icon={statusMeta.icon as ReactElement}
           label={statusMeta.label}
         />
         <Tooltip title="Undo (Ctrl/Cmd+Z)">
@@ -181,20 +197,34 @@ export function BuilderHeader({
             variant="outlined"
             size="small"
             startIcon={<VisibilityIcon fontSize="small" />}
-            onClick={() => navigate(`/run/${survey.id}`, { state: { survey } })}
+            onClick={() => setFullPreviewOpen(true)}
           >
             Preview
           </Button>
         </Tooltip>
-        <Tooltip title="Save now (Ctrl/Cmd+S)">
-          <span>
-            <Button variant="contained" size="small" onClick={onSaveNow} disabled={saveStatus === 'saving'}>
-              Publish
-            </Button>
-          </span>
+        <Tooltip title="Save (Ctrl/Cmd+S)">
+          <Button variant="contained" size="small" onClick={onSave}>
+            Publish
+          </Button>
         </Tooltip>
       </Toolbar>
       <PreviewDrawer open={previewDrawerOpen} onClose={() => setPreviewDrawerOpen(false)} />
+      <Dialog fullScreen open={fullPreviewOpen} onClose={() => setFullPreviewOpen(false)} slots={{ transition: SlideUpTransition }}>
+        <AppBar position="relative" color="inherit" sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Toolbar>
+            <IconButton edge="start" onClick={() => setFullPreviewOpen(false)} aria-label="Close preview">
+              <CloseIcon />
+            </IconButton>
+            <Typography sx={{ ml: 1 }} variant="subtitle1">
+              Preview — {survey.title}
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        {/* Remounted fresh each time the dialog opens, via `key`, so a
+            previous preview session's in-progress answers don't leak into
+            the next one. */}
+        {fullPreviewOpen && <SurveyRunner key={survey.id} survey={survey} onSubmit={() => setFullPreviewOpen(false)} />}
+      </Dialog>
     </AppBar>
   );
 }

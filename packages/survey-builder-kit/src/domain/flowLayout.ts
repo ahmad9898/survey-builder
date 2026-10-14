@@ -34,7 +34,7 @@ export interface FlowPageNode {
   data: FlowPageNodeData;
 }
 
-export type FlowEdgeVariant = 'positive' | 'neutral';
+export type FlowEdgeVariant = 'positive' | 'neutral' | 'disqualifying';
 
 export interface FlowPageEdge {
   id: string;
@@ -57,6 +57,28 @@ export interface FlowStartMarker {
   edge: { id: string; source: string; target: string };
 }
 
+// One edge per disqualifying option actually selected-as-disqualifying
+// anywhere on the page (a page can hold more than one, across one
+// multi-select question or several questions) -- labeled with the option's
+// own text, e.g. "Yes".
+export interface FlowDisqualifiedEdge {
+  id: string;
+  source: string;
+  target: string;
+  label: string;
+}
+
+// A single shared terminal every disqualifying option on every page points
+// at -- there's one "Disqualified" outcome in the survey, not one per
+// question. Distinct from a page's own blocksSubmission (a whole dedicated
+// notice page reached via a branching rule): this is a specific ANSWER that
+// ends things right there, without navigating anywhere.
+export interface FlowDisqualifiedTerminal {
+  id: string;
+  position: FlowPosition;
+  edges: FlowDisqualifiedEdge[];
+}
+
 export interface PageFlow {
   nodes: FlowPageNode[];
   edges: FlowPageEdge[];
@@ -64,6 +86,9 @@ export interface PageFlow {
   // empty, or startPageId doesn't match any page -- both defensive-only,
   // since the builder never lets an author reach either state).
   startMarker: FlowStartMarker | null;
+  // null when no question anywhere in the survey has a disqualifying
+  // option -- the terminal node only exists when it's actually needed.
+  disqualifiedTerminal: FlowDisqualifiedTerminal | null;
 }
 
 export interface FlowPosition {
@@ -85,6 +110,27 @@ export const NODE_HEIGHT = 100;
 export const START_NODE_ID = '__start__';
 export const START_NODE_WIDTH = 88;
 export const START_NODE_HEIGHT = 34;
+
+// The shared "Disqualified" pill every disqualifying-option edge points at
+// (see DisqualifiedNode.tsx) -- fed into the same dagre pass for the same
+// reason the Start pill is, so it gets its own reserved space.
+export const DISQUALIFIED_NODE_ID = '__disqualified__';
+export const DISQUALIFIED_NODE_WIDTH = 132;
+export const DISQUALIFIED_NODE_HEIGHT = 34;
+
+// Every option, across every question on this page, that's flagged
+// disqualifying -- in each question's own `choices` order, across questions
+// in the page's own order.
+function pageDisqualifyingLabels(page: SurveyPage): string[] {
+  const labels: string[] = [];
+  for (const q of page.questions) {
+    if (!q.disqualifyingOptions) continue;
+    for (const choice of q.choices ?? []) {
+      if (choice in q.disqualifyingOptions) labels.push(choice);
+    }
+  }
+  return labels;
+}
 
 interface FieldInfo {
   label: string;
@@ -208,6 +254,16 @@ function computeDagreLayout(survey: Survey, fields: Map<string, FieldInfo>): Map
     g.setNode(START_NODE_ID, { width: START_NODE_WIDTH, height: START_NODE_HEIGHT });
     g.setEdge(START_NODE_ID, startPage.id, { width: 0, height: 0 });
   }
+  const hasAnyDisqualifying = survey.pages.some((p) => pageDisqualifyingLabels(p).length > 0);
+  if (hasAnyDisqualifying) {
+    g.setNode(DISQUALIFIED_NODE_ID, { width: DISQUALIFIED_NODE_WIDTH, height: DISQUALIFIED_NODE_HEIGHT });
+    for (const page of survey.pages) {
+      for (const label of pageDisqualifyingLabels(page)) {
+        const { width, height } = estimateLabelSize(label);
+        g.setEdge(page.id, DISQUALIFIED_NODE_ID, { width, height });
+      }
+    }
+  }
   for (const page of survey.pages) {
     for (const edge of outgoingEdges(page, fields)) {
       const { width, height } = estimateLabelSize(edge.label);
@@ -225,6 +281,10 @@ function computeDagreLayout(survey: Survey, fields: Map<string, FieldInfo>): Map
   if (startPage) {
     const node = g.node(START_NODE_ID);
     if (node) positions.set(START_NODE_ID, { x: node.x, y: node.y });
+  }
+  if (hasAnyDisqualifying) {
+    const node = g.node(DISQUALIFIED_NODE_ID);
+    if (node) positions.set(DISQUALIFIED_NODE_ID, { x: node.x, y: node.y });
   }
   return positions;
 }
@@ -304,12 +364,21 @@ export function pageFlowOrderDiffers(survey: Survey, pageId: string): boolean {
 
 export type PageIconKind = 'warning' | 'branch' | 'empty' | QuestionType;
 
+// True when any question on this page has at least one option flagged
+// disqualifying (see QuestionDef.disqualifyingOptions) -- a second, more
+// granular way a page can carry a disqualification risk, distinct from
+// page.blocksSubmission (a whole dedicated notice page reached via a
+// branching rule).
+export function pageHasDisqualifyingOption(page: SurveyPage): boolean {
+  return page.questions.some((q) => q.disqualifyingOptions && Object.keys(q.disqualifyingOptions).length > 0);
+}
+
 // What icon a page should show in the sidebar and the flow map node, driven
 // by the page's actual content rather than hardcoded per view: a blocking
-// notice takes priority, then whether the page itself branches, then falling
-// back to its first question's type.
+// notice (whole-page or per-option) takes priority, then whether the page
+// itself branches, then falling back to its first question's type.
 export function pageIconKind(page: SurveyPage): PageIconKind {
-  if (page.blocksSubmission) return 'warning';
+  if (page.blocksSubmission || pageHasDisqualifyingOption(page)) return 'warning';
   if (page.branch.length > 0) return 'branch';
   const first = page.questions[0];
   return first ? first.type : 'empty';
@@ -368,5 +437,104 @@ export function pagesToFlow(survey: Survey, overrides: Record<string, FlowPositi
         }
       : null;
 
-  return { nodes, edges, startMarker };
+  const disqualifiedAuto = autoPositions.get(DISQUALIFIED_NODE_ID);
+  const disqualifiedEdges: FlowDisqualifiedEdge[] = survey.pages.flatMap((page) =>
+    pageDisqualifyingLabels(page).map((label, i) => ({
+      id: `${page.id}-disqualify-${i}-${label}`,
+      source: page.id,
+      target: DISQUALIFIED_NODE_ID,
+      label,
+    })),
+  );
+  const disqualifiedTerminal: FlowDisqualifiedTerminal | null =
+    disqualifiedAuto && disqualifiedEdges.length > 0
+      ? {
+          id: DISQUALIFIED_NODE_ID,
+          position: {
+            x: disqualifiedAuto.x - DISQUALIFIED_NODE_WIDTH / 2,
+            y: disqualifiedAuto.y - DISQUALIFIED_NODE_HEIGHT / 2,
+          },
+          edges: disqualifiedEdges,
+        }
+      : null;
+
+  return { nodes, edges, startMarker, disqualifiedTerminal };
+}
+
+export interface ProgressEstimate {
+  // 1-based: "3" in "3 of 5".
+  currentStep: number;
+  // Best-effort total, re-derived after every answer -- see
+  // shortestRemainingQuestions below for what "best-effort" means here.
+  totalSteps: number;
+}
+
+// Every possible page this one's branch rules or default could send a
+// respondent to -- NOT the one they'll actually take (that depends on
+// answers not yet given). Used only to find the shortest possible remaining
+// path for the progress estimate, never for real navigation (that's
+// resolveNextPage in branchingEngine.ts, which this deliberately doesn't
+// touch).
+function possibleNextPageTargets(page: SurveyPage): (string | 'end')[] {
+  const targets = new Set<string | 'end'>();
+  for (const rule of page.branch) targets.add(rule.goToPageId);
+  targets.add(page.defaultNextPageId);
+  return Array.from(targets);
+}
+
+// Fewest PAGES a respondent could still face after (not including)
+// `fromPageId`, counting every page on the shortest of its possible
+// branches. This is an optimistic estimate -- the real remaining count can
+// only be known once enough questions are answered to resolve which branch
+// is actually taken -- which is exactly why the progress rail needs to
+// re-derive it after every answer rather than computing it once.
+//
+// `visiting` guards against a cycle in the branch graph (defensive only,
+// same as defaultChainOrder's guard -- the builder doesn't let an author
+// create one, but this shouldn't hang if it ever happens).
+function shortestRemainingPages(survey: Survey, fromPageId: string, visiting: Set<string> = new Set()): number {
+  if (visiting.has(fromPageId)) return Infinity;
+  const page = survey.pages.find((p) => p.id === fromPageId);
+  if (!page) return Infinity;
+
+  const nextVisiting = new Set(visiting);
+  nextVisiting.add(fromPageId);
+
+  let best = Infinity;
+  for (const target of possibleNextPageTargets(page)) {
+    if (target === 'end') {
+      best = Math.min(best, 0);
+      continue;
+    }
+    if (!survey.pages.some((p) => p.id === target)) continue;
+    const rest = shortestRemainingPages(survey, target, nextVisiting);
+    if (rest === Infinity) continue;
+    best = Math.min(best, 1 + rest);
+  }
+  // No viable path found (every branch cycles, or points at a missing page)
+  // -- defensively treat as "nothing more to add" rather than propagating
+  // Infinity into the displayed total.
+  return best === Infinity ? 0 : best;
+}
+
+// Powers the runner's progress rail ("3 of 5"). Pages can be skipped by
+// branching, so this is never currentPageIndex/pages.length -- it's built
+// from the same page/branch graph pagesToFlow draws. Counted in PAGES, not
+// questions: the runner shows one PAGE per screen (a page with more than one
+// question renders them all together, not split into separate steps -- see
+// RunnerShell/MultiQuestionStage), so a step is a page regardless of how
+// many questions it holds.
+//
+// `visitedPageStack` is the player store's own stack, unchanged.
+export function estimateProgress(survey: Survey, visitedPageStack: string[]): ProgressEstimate {
+  const currentPageId = visitedPageStack[visitedPageStack.length - 1];
+  if (!survey.pages.some((p) => p.id === currentPageId)) return { currentStep: 1, totalSteps: 1 };
+
+  const currentStep = visitedPageStack.length;
+  const remainingAfterCurrentPage = shortestRemainingPages(survey, currentPageId);
+
+  return {
+    currentStep,
+    totalSteps: currentStep + remainingAfterCurrentPage,
+  };
 }

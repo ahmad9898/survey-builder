@@ -1,5 +1,5 @@
 import { db } from './db';
-import type { SurveyResponse } from '../types/response';
+import type { SurveyResponse } from 'survey-builder-kit';
 
 export const responseRepository = {
   save(response: SurveyResponse): Promise<string> {

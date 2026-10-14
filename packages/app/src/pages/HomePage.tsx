@@ -15,9 +15,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DownloadIcon from '@mui/icons-material/Download';
 import { sampleSurveys } from '../fixtures/sampleSurveys';
 import { surveyRepository } from '../storage/surveyRepository';
-import { exportJson, importJsonFile } from '../storage/fileIO';
-import { newSurvey } from '../builder/store/builderStore';
-import type { Survey } from '../types/survey';
+import { exportJson, importJsonFile } from '../lib/fileIO';
+import { newSurvey } from 'survey-builder-kit';
+import type { Survey } from 'survey-builder-kit';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -139,6 +139,12 @@ export function HomePage() {
           </ListItem>
         ))}
       </List>
+
+      <Typography variant="body2" sx={{ mt: 4 }}>
+        <Link component={RouterLink} to="/verify-harness">
+          survey-builder-kit JSON round-trip harness (temporary)
+        </Link>
+      </Typography>
     </Box>
   );
 }

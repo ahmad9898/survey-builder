@@ -1,3 +1,4 @@
+import Ajv from 'ajv';
 import { describe, expect, it } from 'vitest';
 import { compilePage } from '../../src/domain/schemaCompiler';
 import type { QuestionDef } from '../../src/types/survey';
@@ -142,5 +143,101 @@ describe('compilePage', () => {
     });
     const element = (uischema as any).elements[0];
     expect(element.rule).toBeUndefined();
+  });
+
+  it('merges description and multi onto the SAME options object (regression: these used to clobber each other)', () => {
+    const { uischema } = compilePage({
+      questions: [{ id: 'q1', type: 'longText', label: 'A', description: 'Helper text' }],
+    });
+    const element = (uischema as any).elements[0];
+    expect(element.options).toEqual({ description: 'Helper text', multi: true });
+  });
+
+  it('merges description and the rating/nps renderer hint onto the same options object', () => {
+    const { uischema } = compilePage({
+      questions: [{ id: 'q1', type: 'rating', label: 'A', description: 'Helper text' }],
+    });
+    const element = (uischema as any).elements[0];
+    expect(element.options).toEqual({ description: 'Helper text', renderer: 'rating' });
+  });
+
+  describe('disqualifyingOptions', () => {
+    it('threads disqualifyingOptions into the UI schema as metadata, not the JSON schema', () => {
+      const question: QuestionDef = {
+        id: 'heartAttack',
+        type: 'singleChoice',
+        label: 'Heart attack in the last 6 months?',
+        choices: ['Yes', 'No'],
+        disqualifyingOptions: { Yes: { title: 'Assessment unavailable', body: 'This disqualifies you from the online assessment.' } },
+      };
+      const { schema, uischema } = compilePage({ questions: [question] });
+
+      // AJV's view of this question is completely unaffected -- "Yes" is
+      // still just a normal valid enum value.
+      expect(schema.properties).toEqual({ heartAttack: { type: 'string', enum: ['Yes', 'No'] } });
+
+      const element = (uischema as any).elements[0];
+      expect(element.options.disqualifyingOptions).toEqual({
+        Yes: { title: 'Assessment unavailable', body: 'This disqualifies you from the online assessment.' },
+      });
+    });
+
+    it('omits the options key entirely when there is nothing disqualifying (no stray empty object)', () => {
+      const { uischema } = compilePage({
+        questions: [{ id: 'q1', type: 'singleChoice', label: 'A', choices: ['X', 'Y'] }],
+      });
+      const element = (uischema as any).elements[0];
+      expect(element.options).toBeUndefined();
+    });
+
+    it('omits the options key when disqualifyingOptions is present but empty', () => {
+      const { uischema } = compilePage({
+        questions: [{ id: 'q1', type: 'singleChoice', label: 'A', choices: ['X'], disqualifyingOptions: {} }],
+      });
+      const element = (uischema as any).elements[0];
+      expect(element.options).toBeUndefined();
+    });
+
+    it('a disqualifying option is still a normal valid enum value as far as AJV is concerned', () => {
+      const question: QuestionDef = {
+        id: 'heartAttack',
+        type: 'singleChoice',
+        label: 'Heart attack?',
+        required: true,
+        choices: ['Yes', 'No'],
+        disqualifyingOptions: { Yes: { title: 'Disqualified', body: 'Disqualifying message.' } },
+      };
+      const { schema } = compilePage({ questions: [question] });
+      const ajv = new Ajv();
+      const validate = ajv.compile(schema);
+
+      expect(validate({ heartAttack: 'Yes' })).toBe(true);
+      expect(validate({ heartAttack: 'No' })).toBe(true);
+      expect(validate({})).toBe(false); // still enforces `required`, unaffected
+      expect(validate({ heartAttack: 'Maybe' })).toBe(false); // still enforces `enum`, unaffected
+    });
+
+    it('works the same way for multipleChoice (array of enum)', () => {
+      const question: QuestionDef = {
+        id: 'symptoms',
+        type: 'multipleChoice',
+        label: 'Symptoms',
+        choices: ['Headache', 'Chest pain', 'None'],
+        disqualifyingOptions: { 'Chest pain': { title: 'Seek care', body: 'Seek immediate medical attention.' } },
+      };
+      const { schema, uischema } = compilePage({ questions: [question] });
+
+      expect(schema.properties).toEqual({
+        symptoms: { type: 'array', items: { type: 'string', enum: ['Headache', 'Chest pain', 'None'] }, uniqueItems: true },
+      });
+      const element = (uischema as any).elements[0];
+      expect(element.options.disqualifyingOptions).toEqual({
+        'Chest pain': { title: 'Seek care', body: 'Seek immediate medical attention.' },
+      });
+
+      const ajv = new Ajv();
+      const validate = ajv.compile(schema);
+      expect(validate({ symptoms: ['Headache', 'Chest pain'] })).toBe(true);
+    });
   });
 });

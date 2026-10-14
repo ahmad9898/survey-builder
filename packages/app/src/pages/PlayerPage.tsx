@@ -1,11 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Link } from '@mui/material';
-import { usePlayerStore } from '../runtime/store/playerStore';
-import { SurveyPage } from '../runtime/components/SurveyPage';
-import { ResultsScreen } from '../runtime/components/ResultsScreen';
+import { SurveyRunner, computeScore } from 'survey-builder-kit';
+import type { Survey } from 'survey-builder-kit';
 import { sampleSurveys } from '../fixtures/sampleSurveys';
-import type { Survey } from '../types/survey';
 import { surveyRepository } from '../storage/surveyRepository';
 import { responseRepository } from '../storage/responseRepository';
 import { newId } from '../lib/id';
@@ -14,47 +12,47 @@ export function PlayerPage() {
   const { surveyId } = useParams<{ surveyId: string }>();
   const location = useLocation();
   const surveyFromNavState = (location.state as { survey?: Survey } | null)?.survey;
-  const survey = usePlayerStore((s) => s.survey);
-  const finished = usePlayerStore((s) => s.finished);
-  const answers = usePlayerStore((s) => s.answers);
-  const score = usePlayerStore((s) => s.score);
-  const visitedPageStack = usePlayerStore((s) => s.visitedPageStack);
-  const loadSurvey = usePlayerStore((s) => s.loadSurvey);
+  const [survey, setSurvey] = useState<Survey | null>(null);
+  const startedAtRef = useRef(new Date().toISOString());
   const savedResponseFor = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       if (surveyFromNavState) {
-        loadSurvey(surveyFromNavState);
+        setSurvey(surveyFromNavState);
         return;
       }
       const fromDb = await surveyRepository.get(surveyId!);
       if (cancelled) return;
-      const found = fromDb ?? sampleSurveys.find((s) => s.id === surveyId);
-      if (found) loadSurvey(found);
+      const found = fromDb ?? sampleSurveys.find((s) => s.id === surveyId) ?? null;
+      setSurvey(found);
     }
     load();
     return () => {
       cancelled = true;
     };
-  }, [surveyId, surveyFromNavState, loadSurvey]);
+  }, [surveyId, surveyFromNavState]);
 
-  useEffect(() => {
-    if (!finished || !survey) return;
-    if (savedResponseFor.current === survey.id) return;
+  const handleSubmit = (answers: Record<string, unknown>) => {
+    if (!survey || savedResponseFor.current === survey.id) return;
     savedResponseFor.current = survey.id;
+    const score = survey.scoring?.enabled
+      ? computeScore(survey.scoringMap, answers, survey.scoring.categories, survey.scoring.passThreshold)
+      : undefined;
     responseRepository.save({
       id: newId('response'),
       surveyId: survey.id,
       surveyVersion: survey.version,
       answers,
-      visitedPageIds: visitedPageStack,
-      score: score ?? undefined,
-      startedAt: new Date().toISOString(),
+      // <SurveyRunner>'s public API doesn't expose page-visit history (only
+      // final answers), so this app-level record can no longer track it.
+      visitedPageIds: [],
+      score,
+      startedAt: startedAtRef.current,
       completedAt: new Date().toISOString(),
     });
-  }, [finished, survey, answers, score, visitedPageStack]);
+  };
 
   if (!survey) {
     return (
@@ -67,5 +65,9 @@ export function PlayerPage() {
     );
   }
 
-  return finished ? <ResultsScreen /> : <SurveyPage />;
+  return (
+    <Box sx={{ flex: 1, minHeight: 0 }}>
+      <SurveyRunner survey={survey} onSubmit={handleSubmit} />
+    </Box>
+  );
 }

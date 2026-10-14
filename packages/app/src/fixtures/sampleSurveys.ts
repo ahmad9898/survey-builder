@@ -1,5 +1,5 @@
 import { RuleEffect } from '@jsonforms/core';
-import type { Survey } from '../types/survey';
+import type { Survey } from 'survey-builder-kit';
 
 // Hand-authored fixture proving the branching + scoring + conditional-visibility
 // data shape end to end, ahead of the builder UI that will generate this JSON.
@@ -7,6 +7,7 @@ export const competitorSwitchSurvey: Survey = {
   id: 'survey_competitor_switch',
   title: 'Customer Satisfaction & Onboarding Fit',
   description: 'A short survey that branches based on whether you use a competitor product.',
+  schemaVersion: 1,
   version: 1,
   createdAt: '2026-08-12T00:00:00.000Z',
   updatedAt: '2026-08-12T00:00:00.000Z',
@@ -161,6 +162,7 @@ export const competitorSwitchSurvey: Survey = {
 export const simpleFeedbackSurvey: Survey = {
   id: 'survey_simple_feedback',
   title: 'Quick Feedback',
+  schemaVersion: 1,
   version: 1,
   createdAt: '2026-08-12T00:00:00.000Z',
   updatedAt: '2026-08-12T00:00:00.000Z',

@@ -24,24 +24,53 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import type { QuestionDef, Survey } from '../../types/survey';
+import type { DisqualifyingNotice, QuestionDef, Survey } from '../../types/survey';
 import { questionTypeMeta } from '../questionTypes';
 import { QUESTION_TYPE_ICONS } from '../questionTypeIcons';
 import { useBuilderStore } from '../store/builderStore';
 import { ConditionEditor, type FieldOption } from './ConditionEditor';
 import { ScoringEditor } from './ScoringEditor';
 
-function ChoiceListEditor({ questionId, choices }: { questionId: string; choices: string[] }) {
+function ChoiceListEditor({
+  questionId,
+  choices,
+  disqualifyingOptions,
+}: {
+  questionId: string;
+  choices: string[];
+  disqualifyingOptions?: Record<string, DisqualifyingNotice>;
+}) {
   const updateQuestion = useBuilderStore((s) => s.updateQuestion);
+  const theme = useTheme();
+  const tokens = theme.custom.warningBanner;
+  const dq = disqualifyingOptions ?? {};
 
   const setChoice = (index: number, value: string) => {
+    const oldValue = choices[index];
     const next = [...choices];
     next[index] = value;
-    updateQuestion(questionId, { choices: next });
+    const patch: Partial<QuestionDef> = { choices: next };
+    // A disqualifying flag is keyed by the option's own text -- renaming the
+    // option must carry the flag (and its notice) along with it, not
+    // orphan it under text that no longer exists.
+    if (oldValue !== value && oldValue in dq) {
+      const nextDq = { ...dq };
+      nextDq[value] = nextDq[oldValue];
+      delete nextDq[oldValue];
+      patch.disqualifyingOptions = nextDq;
+    }
+    updateQuestion(questionId, patch);
   };
   const removeChoice = (index: number) => {
     if (choices.length <= 1) return;
-    updateQuestion(questionId, { choices: choices.filter((_, i) => i !== index) });
+    const removed = choices[index];
+    const patch: Partial<QuestionDef> = { choices: choices.filter((_, i) => i !== index) };
+    if (removed in dq) {
+      const nextDq = { ...dq };
+      delete nextDq[removed];
+      patch.disqualifyingOptions = nextDq;
+    }
+    updateQuestion(questionId, patch);
   };
   const moveChoice = (index: number, direction: -1 | 1) => {
     const target = index + direction;
@@ -53,54 +82,133 @@ function ChoiceListEditor({ questionId, choices }: { questionId: string; choices
   const addChoice = () => {
     updateQuestion(questionId, { choices: [...choices, `Option ${choices.length + 1}`] });
   };
+  const toggleDisqualifying = (choice: string) => {
+    const nextDq = { ...dq };
+    if (choice in nextDq) delete nextDq[choice];
+    else nextDq[choice] = { title: '', body: '' };
+    updateQuestion(questionId, { disqualifyingOptions: nextDq });
+  };
+  const setDisqualifyNotice = (choice: string, notice: DisqualifyingNotice) => {
+    updateQuestion(questionId, { disqualifyingOptions: { ...dq, [choice]: notice } });
+  };
 
   return (
     <Stack spacing={1}>
       <Typography variant="caption" color="text.secondary">
         Options
       </Typography>
-      {choices.map((choice, i) => (
-        <Stack direction="row" spacing={0.5} key={i} alignItems="center">
-          <Stack>
-            <IconButton
-              size="small"
-              disabled={i === 0}
-              onClick={() => moveChoice(i, -1)}
-              aria-label={`Move option "${choice}" up`}
-              sx={{ p: 0.25 }}
-            >
-              <ArrowUpwardIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-            <IconButton
-              size="small"
-              disabled={i === choices.length - 1}
-              onClick={() => moveChoice(i, 1)}
-              aria-label={`Move option "${choice}" down`}
-              sx={{ p: 0.25 }}
-            >
-              <ArrowDownwardIcon sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Stack>
-          <TextField
-            size="small"
-            fullWidth
-            value={choice}
-            onChange={(e) => setChoice(i, e.target.value)}
-          />
-          <Tooltip title={choices.length <= 1 ? 'At least one option is required' : 'Remove option'}>
-            <span>
-              <IconButton
+      {choices.map((choice, i) => {
+        const isDisqualifying = choice in dq;
+        const rawNotice = dq[choice];
+        // Defensive: disqualifyingOptions used to be `Record<string, string>`
+        // before it grew a title/body shape. normalizeSurvey() repairs this
+        // on mount, but a crash here (`.title` on a bare string) is bad
+        // enough -- a blank Builder page -- that it's worth guarding again
+        // at the point of use rather than trusting every caller upstream.
+        const notice = typeof rawNotice === 'string' ? { title: rawNotice } : (rawNotice ?? { title: '', body: '' });
+        const titleMissing = isDisqualifying && (notice.title ?? '').trim() === '';
+        return (
+          <Box key={i}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Stack>
+                <IconButton
+                  size="small"
+                  disabled={i === 0}
+                  onClick={() => moveChoice(i, -1)}
+                  aria-label={`Move option "${choice}" up`}
+                  sx={{ p: 0.25 }}
+                >
+                  <ArrowUpwardIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+                <IconButton
+                  size="small"
+                  disabled={i === choices.length - 1}
+                  onClick={() => moveChoice(i, 1)}
+                  aria-label={`Move option "${choice}" down`}
+                  sx={{ p: 0.25 }}
+                >
+                  <ArrowDownwardIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </Stack>
+              <TextField
                 size="small"
-                disabled={choices.length <= 1}
-                onClick={() => removeChoice(i)}
-                aria-label={`Remove option "${choice}"`}
+                fullWidth
+                value={choice}
+                onChange={(e) => setChoice(i, e.target.value)}
+              />
+              {isDisqualifying && (
+                <Chip
+                  size="small"
+                  label="Disqualifying"
+                  sx={{ bgcolor: tokens.iconBg, color: tokens.textStrong, fontWeight: 600, flexShrink: 0 }}
+                />
+              )}
+              <Tooltip title={isDisqualifying ? 'Remove disqualifying flag' : 'Mark this option as disqualifying'}>
+                <IconButton
+                  size="small"
+                  onClick={() => toggleDisqualifying(choice)}
+                  aria-label={isDisqualifying ? `Remove disqualifying flag from "${choice}"` : `Mark "${choice}" as disqualifying`}
+                  sx={{ color: isDisqualifying ? tokens.icon : 'action.active' }}
+                >
+                  <WarningAmberIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={choices.length <= 1 ? 'At least one option is required' : 'Remove option'}>
+                <span>
+                  <IconButton
+                    size="small"
+                    disabled={choices.length <= 1}
+                    onClick={() => removeChoice(i)}
+                    aria-label={`Remove option "${choice}"`}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
+            <Collapse in={isDisqualifying} unmountOnExit>
+              <Stack
+                spacing={1}
+                sx={{
+                  ml: 4.5,
+                  mt: 0.5,
+                  p: 1,
+                  borderRadius: 1,
+                  bgcolor: tokens.bg,
+                  border: '1px solid',
+                  borderColor: tokens.border,
+                }}
               >
-                <DeleteOutlineIcon fontSize="small" />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Stack>
-      ))}
+                <TextField
+                  size="small"
+                  fullWidth
+                  required
+                  label="Title shown if selected"
+                  placeholder="e.g. Medical Review Required"
+                  value={notice.title}
+                  error={titleMissing}
+                  helperText={
+                    titleMissing
+                      ? 'Required -- a blank disqualification notice is not allowed.'
+                      : 'Short heading -- shown in bold, above the body text.'
+                  }
+                  onChange={(e) => setDisqualifyNotice(choice, { ...notice, title: e.target.value })}
+                />
+                <TextField
+                  size="small"
+                  fullWidth
+                  multiline
+                  label="Body text (optional)"
+                  placeholder="e.g. This disqualifies you from the online assessment. Please see a GP in person."
+                  value={notice.body ?? ''}
+                  helperText="Longer detail -- shown below the title."
+                  onChange={(e) => setDisqualifyNotice(choice, { ...notice, body: e.target.value })}
+                />
+              </Stack>
+            </Collapse>
+          </Box>
+        );
+      })}
       <Button size="small" onClick={addChoice}>
         + Add option
       </Button>
@@ -212,6 +320,7 @@ export function QuestionCard({
   const updateQuestion = useBuilderStore((s) => s.updateQuestion);
   const setVisibilityRule = useBuilderStore((s) => s.setVisibilityRule);
   const survey = useBuilderStore((s) => s.survey);
+  const warningTokens = useTheme().custom.warningBanner;
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -228,6 +337,7 @@ export function QuestionCard({
   const isLabel = question.type === 'label';
   const hasText = question.type === 'shortText' || question.type === 'longText';
   const isDate = question.type === 'date';
+  const hasDisqualifyingOption = Object.keys(question.disqualifyingOptions ?? {}).length > 0;
 
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -263,6 +373,16 @@ export function QuestionCard({
           label={meta.paletteLabel}
           sx={{ bgcolor: 'action.hover', color: 'text.secondary', flexShrink: 0 }}
         />
+        {hasDisqualifyingOption && (
+          <Tooltip title="At least one option here is flagged disqualifying">
+            <Chip
+              size="small"
+              icon={<WarningAmberIcon sx={{ fontSize: 14 }} />}
+              label="Disqualifying"
+              sx={{ bgcolor: warningTokens.iconBg, color: warningTokens.textStrong, fontWeight: 600, flexShrink: 0 }}
+            />
+          </Tooltip>
+        )}
         <Box onClick={toggleExpanded} sx={{ flex: 1, cursor: 'pointer', py: 1.5, minWidth: 0 }}>
           <Typography variant="body2" fontWeight={600} noWrap>
             {question.label || '(untitled question)'}
@@ -361,7 +481,11 @@ export function QuestionCard({
               />
             )}
             {hasChoices && (
-              <ChoiceListEditor questionId={question.id} choices={question.choices ?? []} />
+              <ChoiceListEditor
+                questionId={question.id}
+                choices={question.choices ?? []}
+                disqualifyingOptions={question.disqualifyingOptions}
+              />
             )}
             {hasMinMax && (
               <>

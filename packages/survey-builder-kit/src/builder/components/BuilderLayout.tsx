@@ -7,14 +7,14 @@ import { PageCanvas } from './PageCanvas';
 import { Inspector } from './Inspector';
 import { FlowMapView } from './FlowMap/FlowMapView';
 import { GlobalSnackbar } from './GlobalSnackbar';
-import type { SaveStatus } from '../../pages/BuilderPage';
+import type { SaveStatus } from '../useDraftAutosave';
 
 export function BuilderLayout({
   saveStatus,
-  onSaveNow,
+  onSave,
 }: {
   saveStatus: SaveStatus;
-  onSaveNow: () => void;
+  onSave: () => void;
 }) {
   const survey = useBuilderStore((s) => s.survey);
   const selectedPageId = useBuilderStore((s) => s.selectedPageId);
@@ -28,7 +28,7 @@ export function BuilderLayout({
       if (!isMod) return;
       if (e.key.toLowerCase() === 's') {
         e.preventDefault();
-        onSaveNow();
+        onSave();
         return;
       }
       if (e.key.toLowerCase() !== 'z') return;
@@ -38,13 +38,17 @@ export function BuilderLayout({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, onSaveNow]);
+  }, [undo, redo, onSave]);
 
   const page = survey.pages.find((p) => p.id === selectedPageId);
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      <BuilderHeader saveStatus={saveStatus} onSaveNow={onSaveNow} />
+    // Fills whatever container the host mounts <SurveyBuilder> in -- the
+    // standalone app's own page gives that container 100vh itself (see
+    // packages/app's "builder-shell" CSS), but a library component can't
+    // assume it owns the full browser viewport the way a dedicated route did.
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      <BuilderHeader saveStatus={saveStatus} onSave={onSave} />
       <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <PageSidebar />
         {viewMode === 'flow' ? (

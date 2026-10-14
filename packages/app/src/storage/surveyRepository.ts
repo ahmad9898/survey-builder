@@ -1,5 +1,5 @@
 import { db } from './db';
-import type { Survey } from '../types/survey';
+import type { Survey } from 'survey-builder-kit';
 
 export const surveyRepository = {
   list(): Promise<Survey[]> {

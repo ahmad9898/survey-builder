@@ -67,15 +67,27 @@ function compileQuestionUiElement(q: QuestionDef): UISchemaElement {
   const scope = `#/properties/${q.id}`;
   const rendererHint = RENDERER_HINT[q.type];
 
+  // Built once and merged, rather than several independent `options: {...}`
+  // spreads -- each of those would silently replace the whole `options`
+  // object rather than merge into it, so e.g. a longText question with both
+  // a description AND `multi` would have lost the description.
+  const options: Record<string, unknown> = {};
+  if (q.description) options.description = q.description;
+  if (rendererHint) options.renderer = rendererHint;
+  if (q.type === 'longText') options.multi = true;
+  // UI-schema metadata only -- AJV never sees this, it's read by the
+  // runner's choice controls and the Builder's options list. Omitted
+  // entirely (not even an empty object) when there's nothing disqualifying,
+  // so a plain question's compiled UI schema doesn't grow a stray key.
+  if (q.disqualifyingOptions && Object.keys(q.disqualifyingOptions).length > 0) {
+    options.disqualifyingOptions = q.disqualifyingOptions;
+  }
+
   return {
     type: 'Control',
     scope,
     label: q.label,
-    ...(q.description ? { options: { description: q.description } } : {}),
-    ...(rendererHint
-      ? { options: { ...(q.description ? { description: q.description } : {}), renderer: rendererHint } }
-      : {}),
-    ...(q.type === 'longText' ? { options: { multi: true } } : {}),
+    ...(Object.keys(options).length > 0 ? { options } : {}),
     ...(rule ? { rule } : {}),
   } as UISchemaElement;
 }

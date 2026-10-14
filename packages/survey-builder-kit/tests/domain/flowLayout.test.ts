@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeFlowOverviewStats,
+  estimateProgress,
   isPageUnconnected,
   pageFlowOrderDiffers,
+  pageHasDisqualifyingOption,
+  pageIconKind,
   pagesToFlow,
   START_NODE_ID,
 } from '../../src/domain/flowLayout';
@@ -410,5 +413,229 @@ describe('computeFlowOverviewStats', () => {
     const s = survey([page({ id: 'a', title: 'A' })]);
     const stats = computeFlowOverviewStats(s);
     expect(stats).toEqual({ pageCount: 1, branchPointCount: 0, pathsToEndingCount: 1 });
+  });
+});
+
+describe('estimateProgress', () => {
+  // A branch point whose two outcomes have DIFFERENT remaining lengths --
+  // 'short' ends immediately, the default path runs through two more pages
+  // -- so answering it actually moves the estimate, not just locks in a
+  // branch that happened to be the same length either way.
+  function asymmetricBranchSurvey(): Survey {
+    return survey([
+      page({ id: 'p1', title: 'P1', questions: [{ id: 'q1', type: 'shortText', label: 'Q1' }], defaultNextPageId: 'p2' }),
+      page({
+        id: 'p2',
+        title: 'Branch point',
+        questions: [{ id: 'q2', type: 'boolean', label: 'Q2' }],
+        branch: [
+          {
+            id: 'r1',
+            when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/q2', operator: 'eq', value: true }] },
+            goToPageId: 'short',
+          },
+        ],
+        defaultNextPageId: 'longA',
+      }),
+      page({ id: 'short', title: 'Short', questions: [{ id: 'qs', type: 'shortText', label: 'QS' }] }),
+      page({ id: 'longA', title: 'Long A', questions: [{ id: 'qa', type: 'shortText', label: 'QA' }], defaultNextPageId: 'longB' }),
+      page({ id: 'longB', title: 'Long B', questions: [{ id: 'qb', type: 'shortText', label: 'QB' }], defaultNextPageId: 'longC' }),
+      page({ id: 'longC', title: 'Long C', questions: [{ id: 'qc', type: 'shortText', label: 'QC' }] }),
+    ]);
+  }
+
+  it('estimates the shortest possible total before any branch has fired', () => {
+    const s = asymmetricBranchSurvey();
+    // p1 + p2 + shortest of (short: 1 page) vs (longA+longB+longC: 3 pages) = 3 pages.
+    expect(estimateProgress(s, ['p1'])).toEqual({ currentStep: 1, totalSteps: 3 });
+    expect(estimateProgress(s, ['p1', 'p2'])).toEqual({ currentStep: 2, totalSteps: 3 });
+  });
+
+  it('grows the estimate once the longer branch actually fires', () => {
+    const s = asymmetricBranchSurvey();
+    // Answering q2 "No" takes the default path into longA -- now on a
+    // concretely longer remaining path than the optimistic pre-answer guess.
+    expect(estimateProgress(s, ['p1', 'p2', 'longA'])).toEqual({ currentStep: 3, totalSteps: 5 });
+  });
+
+  it('keeps the estimate stable when the shorter branch fires (it matched the optimistic guess)', () => {
+    const s = asymmetricBranchSurvey();
+    expect(estimateProgress(s, ['p1', 'p2', 'short'])).toEqual({ currentStep: 3, totalSteps: 3 });
+  });
+
+  it('counts a page as ONE step regardless of how many questions it holds', () => {
+    // The runner shows a multi-question page as a single screen (see
+    // RunnerShell/MultiQuestionStage), so a 5-question page must not inflate
+    // the total the way counting by question would.
+    const s = survey([
+      page({
+        id: 'multi',
+        title: 'Multi',
+        questions: [
+          { id: 'a', type: 'shortText', label: 'A' },
+          { id: 'b', type: 'shortText', label: 'B' },
+          { id: 'c', type: 'shortText', label: 'C' },
+          { id: 'd', type: 'shortText', label: 'D' },
+          { id: 'e', type: 'shortText', label: 'E' },
+        ],
+        defaultNextPageId: 'next',
+      }),
+      page({ id: 'next', title: 'Next' }),
+    ]);
+    expect(estimateProgress(s, ['multi'])).toEqual({ currentStep: 1, totalSteps: 2 });
+    expect(estimateProgress(s, ['multi', 'next'])).toEqual({ currentStep: 2, totalSteps: 2 });
+  });
+
+  it('matches the health-screening demo: the heart-attack branch point sits mid-survey', () => {
+    const s = healthScreeningDemo();
+    // p1+p2+p3+min(p4, p5) = 4 pages, regardless of which fires here (both
+    // outcomes happen to be the same length in this particular demo).
+    expect(estimateProgress(s, ['p1', 'p2', 'p3'])).toEqual({ currentStep: 3, totalSteps: 4 });
+    expect(estimateProgress(s, ['p1', 'p2', 'p3', 'p4'])).toEqual({ currentStep: 4, totalSteps: 4 });
+  });
+
+  it('falls back to a 1-of-1 estimate if the current page id is not found (defensive)', () => {
+    const s = survey([page({ id: 'a', title: 'A' })]);
+    expect(estimateProgress(s, ['missing'])).toEqual({ currentStep: 1, totalSteps: 1 });
+  });
+});
+
+describe('pageHasDisqualifyingOption / pageIconKind', () => {
+  it('is false for a page with no disqualifying options', () => {
+    const p = page({
+      id: 'a',
+      title: 'A',
+      questions: [{ id: 'q', type: 'singleChoice', label: 'Q', choices: ['Yes', 'No'] }],
+    });
+    expect(pageHasDisqualifyingOption(p)).toBe(false);
+    expect(pageIconKind(p)).toBe('singleChoice');
+  });
+
+  it('is true when a question has a disqualifying option, and pageIconKind reports "warning" the same way blocksSubmission does', () => {
+    const p = page({
+      id: 'a',
+      title: 'A',
+      questions: [
+        {
+          id: 'q',
+          type: 'singleChoice',
+          label: 'Heart attack?',
+          choices: ['Yes', 'No'],
+          disqualifyingOptions: { Yes: { title: 'Disqualified', body: 'This disqualifies you.' } },
+        },
+      ],
+    });
+    expect(pageHasDisqualifyingOption(p)).toBe(true);
+    expect(pageIconKind(p)).toBe('warning');
+  });
+
+  it('is false when disqualifyingOptions is present but empty', () => {
+    const p = page({
+      id: 'a',
+      title: 'A',
+      questions: [{ id: 'q', type: 'singleChoice', label: 'Q', choices: ['Yes'], disqualifyingOptions: {} }],
+    });
+    expect(pageHasDisqualifyingOption(p)).toBe(false);
+  });
+
+  it('a disqualifying option still yields "warning" even on a page that also branches (blocking takes priority)', () => {
+    const p = page({
+      id: 'a',
+      title: 'A',
+      questions: [
+        {
+          id: 'q',
+          type: 'singleChoice',
+          label: 'Q',
+          choices: ['Yes', 'No'],
+          disqualifyingOptions: { Yes: { title: 'Disqualified', body: 'Message.' } },
+        },
+      ],
+      branch: [
+        { id: 'r1', when: { logic: 'AND', conditions: [{ fieldPath: '#/properties/q', operator: 'eq', value: 'No' }] }, goToPageId: 'end' },
+      ],
+    });
+    expect(pageIconKind(p)).toBe('warning');
+  });
+});
+
+describe('pagesToFlow disqualifiedTerminal', () => {
+  it('is null when no question anywhere has a disqualifying option', () => {
+    const s = survey([page({ id: 'a', title: 'A', questions: [{ id: 'q', type: 'singleChoice', label: 'Q', choices: ['X', 'Y'] }] })]);
+    expect(pagesToFlow(s).disqualifiedTerminal).toBeNull();
+  });
+
+  it('emits one dashed-style edge per disqualifying option, labeled with the option text', () => {
+    const s = survey([
+      page({
+        id: 'a',
+        title: 'Heart Attack',
+        questions: [
+          {
+            id: 'q',
+            type: 'singleChoice',
+            label: 'Heart attack?',
+            choices: ['Yes', 'No'],
+            disqualifyingOptions: { Yes: { title: 'Disqualified', body: 'Disqualified.' } },
+          },
+        ],
+      }),
+    ]);
+    const { disqualifiedTerminal } = pagesToFlow(s);
+    expect(disqualifiedTerminal).not.toBeNull();
+    expect(disqualifiedTerminal!.edges).toHaveLength(1);
+    expect(disqualifiedTerminal!.edges[0]).toMatchObject({ source: 'a', target: disqualifiedTerminal!.id, label: 'Yes' });
+  });
+
+  it('emits one edge per disqualifying option across multiple questions/pages, all pointing at the SAME shared terminal', () => {
+    const s = survey([
+      page({
+        id: 'a',
+        title: 'A',
+        questions: [
+          {
+            id: 'q1',
+            type: 'multipleChoice',
+            label: 'Symptoms',
+            choices: ['Headache', 'Chest pain', 'Fatigue'],
+            disqualifyingOptions: { 'Chest pain': { title: 'T1', body: 'Msg1' }, Fatigue: { title: 'T2', body: 'Msg2' } },
+          },
+        ],
+        defaultNextPageId: 'b',
+      }),
+      page({
+        id: 'b',
+        title: 'B',
+        questions: [
+          { id: 'q2', type: 'singleChoice', label: 'Other', choices: ['Yes', 'No'], disqualifyingOptions: { Yes: { title: 'T3', body: 'Msg3' } } },
+        ],
+      }),
+    ]);
+    const { disqualifiedTerminal } = pagesToFlow(s);
+    expect(disqualifiedTerminal!.edges).toHaveLength(3);
+    const targets = new Set(disqualifiedTerminal!.edges.map((e) => e.target));
+    expect(targets.size).toBe(1); // every edge points at the same shared node
+    expect(disqualifiedTerminal!.edges.map((e) => e.label).sort()).toEqual(['Chest pain', 'Fatigue', 'Yes']);
+  });
+
+  it('does not emit an edge for an option with an empty disqualifyingOptions map', () => {
+    const s = survey([
+      page({ id: 'a', title: 'A', questions: [{ id: 'q', type: 'singleChoice', label: 'Q', choices: ['X'], disqualifyingOptions: {} }] }),
+    ]);
+    expect(pagesToFlow(s).disqualifiedTerminal).toBeNull();
+  });
+
+  it('reserves its own position, not overlapping the page that points at it', () => {
+    const s = survey([
+      page({
+        id: 'a',
+        title: 'A',
+        questions: [{ id: 'q', type: 'singleChoice', label: 'Q', choices: ['Yes'], disqualifyingOptions: { Yes: { title: 'Disqualified', body: 'Msg' } } }],
+      }),
+    ]);
+    const { nodes, disqualifiedTerminal } = pagesToFlow(s);
+    const a = nodes.find((n) => n.id === 'a')!;
+    const dx = Math.abs(disqualifiedTerminal!.position.x - a.position.x);
+    expect(dx).toBeGreaterThan(0);
   });
 });
