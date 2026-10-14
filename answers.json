@@ -1,0 +1,290 @@
+{
+    "id": "response_88f030b4-5b03-4406-92f4-dac47f59f473",
+    "surveyId": "survey_5c2ef1b2-c665-4bc6-975c-f72e739fd607",
+    "surveyVersion": 1,
+    "answersFormatVersion": 2,
+    "answers": {
+        "date1": {
+            "questionId": "date1",
+            "pageId": "page_cd6ff866-d69b-4de3-af86-f23e1230cb7b",
+            "pageTitle": "Date of Birth",
+            "type": "date",
+            "label": "Date of Birth",
+            "value": "1998-10-01",
+            "displayValue": "October 1, 1998"
+        },
+        "number1": {
+            "questionId": "number1",
+            "pageId": "page_be78f44d-6b37-45fb-8088-6cb210b20741",
+            "pageTitle": "What is your weight and height?",
+            "type": "number",
+            "label": "Weight",
+            "value": 11,
+            "displayValue": "11"
+        },
+        "number2": {
+            "questionId": "number2",
+            "pageId": "page_be78f44d-6b37-45fb-8088-6cb210b20741",
+            "pageTitle": "What is your weight and height?",
+            "type": "number",
+            "label": "Height",
+            "value": 11,
+            "displayValue": "11"
+        },
+        "singleChoice1": {
+            "questionId": "singleChoice1",
+            "pageId": "page_a9b71f9e-6cbc-4525-a5c0-c7b2706ed9a8",
+            "pageTitle": "Gender",
+            "type": "singleChoice",
+            "label": "What was your sex assigned at birth?",
+            "value": "Male",
+            "displayValue": "Male",
+            "options": [
+                {
+                    "value": "Male",
+                    "label": "Male",
+                    "selected": true
+                },
+                {
+                    "value": "Female",
+                    "label": "Female",
+                    "selected": false
+                }
+            ]
+        },
+        "singleChoice2": {
+            "questionId": "singleChoice2",
+            "pageId": "page_f737aae0-ad91-4703-90ab-4266c4f801d5",
+            "pageTitle": "Heart Attack",
+            "type": "singleChoice",
+            "label": "Have you had a heart attack or stent in the last 6 months?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice3": {
+            "questionId": "singleChoice3",
+            "pageId": "page_781e9186-1bee-4a5d-8f94-be340f1d55d2",
+            "pageTitle": "Stroke or mini-stroke",
+            "type": "singleChoice",
+            "label": "Have you had a stroke or mini-stroke in the last 6 months?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice4": {
+            "questionId": "singleChoice4",
+            "pageId": "page_7481c48e-0b1c-4e6b-a9ce-7c6d632eb104",
+            "pageTitle": "Unstable angina",
+            "type": "singleChoice",
+            "label": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice5": {
+            "questionId": "singleChoice5",
+            "pageId": "page_977c0e89-1905-472e-b26a-2603af5ebd8b",
+            "pageTitle": "Experience chest pain",
+            "type": "singleChoice",
+            "label": "Do you experience chest pain or breathlessness with mild activity?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false,
+                    "disqualifying": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice6": {
+            "questionId": "singleChoice6",
+            "pageId": "page_132061e4-59db-4914-a8d9-92aad80a9fbe",
+            "pageTitle": "Nitrate medicines",
+            "type": "singleChoice",
+            "label": "Are you taking nitrate medicines (NitrolingualÂ®, Nitro-DurÂ®, ImdurÂ®)?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false,
+                    "disqualifying": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice7": {
+            "questionId": "singleChoice7",
+            "pageId": "page_2b475f96-eb0d-4f74-a08d-9d64b94d451c",
+            "pageTitle": "Painful Lump",
+            "type": "singleChoice",
+            "label": "Do you have a painful lump, curve or bend in the penis?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false,
+                    "disqualifying": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        },
+        "singleChoice8": {
+            "questionId": "singleChoice8",
+            "pageId": "page_bd8fc484-c796-4f4f-b149-6dda8ab51de9",
+            "pageTitle": "Walk briskly (4-6 km/h)",
+            "type": "singleChoice",
+            "label": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?",
+            "value": "Yes",
+            "displayValue": "Yes",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": false,
+                    "disqualifying": true
+                }
+            ]
+        },
+        "singleChoice9": {
+            "questionId": "singleChoice9",
+            "pageId": "page_882b1907-54c8-47e7-8305-27a6f3d2b6bd",
+            "pageTitle": "Climb 2 flights",
+            "type": "singleChoice",
+            "label": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?",
+            "value": "Yes",
+            "displayValue": "Yes",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": false,
+                    "disqualifying": true
+                }
+            ]
+        },
+        "singleChoice10": {
+            "questionId": "singleChoice10",
+            "pageId": "page_a4d7bf3a-7344-406c-b8b0-f11b89e90351",
+            "pageTitle": "Can you carry groceries",
+            "type": "singleChoice",
+            "label": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?",
+            "value": "Yes",
+            "displayValue": "Yes",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": false,
+                    "disqualifying": true
+                }
+            ]
+        },
+        "singleChoice11": {
+            "questionId": "singleChoice11",
+            "pageId": "page_03914909-9c5e-4d9b-b8ab-4133063c87ba",
+            "pageTitle": "Nitrate medication",
+            "type": "singleChoice",
+            "label": "Are you currently using any nitrate medication for heart or chest pain?",
+            "value": "No",
+            "displayValue": "No",
+            "options": [
+                {
+                    "value": "Yes",
+                    "label": "Yes",
+                    "selected": false,
+                    "disqualifying": true
+                },
+                {
+                    "value": "No",
+                    "label": "No",
+                    "selected": true
+                }
+            ]
+        }
+    },
+    "visitedPageIds": [
+        "page_cd6ff866-d69b-4de3-af86-f23e1230cb7b",
+        "page_be78f44d-6b37-45fb-8088-6cb210b20741",
+        "page_a9b71f9e-6cbc-4525-a5c0-c7b2706ed9a8",
+        "page_f737aae0-ad91-4703-90ab-4266c4f801d5",
+        "page_781e9186-1bee-4a5d-8f94-be340f1d55d2",
+        "page_7481c48e-0b1c-4e6b-a9ce-7c6d632eb104",
+        "page_977c0e89-1905-472e-b26a-2603af5ebd8b",
+        "page_132061e4-59db-4914-a8d9-92aad80a9fbe",
+        "page_2b475f96-eb0d-4f74-a08d-9d64b94d451c",
+        "page_bd8fc484-c796-4f4f-b149-6dda8ab51de9",
+        "page_882b1907-54c8-47e7-8305-27a6f3d2b6bd",
+        "page_a4d7bf3a-7344-406c-b8b0-f11b89e90351",
+        "page_03914909-9c5e-4d9b-b8ab-4133063c87ba"
+    ],
+    "startedAt": "2026-10-08T10:00:14.371Z",
+    "completedAt": "2026-10-08T10:11:00.107Z"
+}

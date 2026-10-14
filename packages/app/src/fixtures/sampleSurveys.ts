@@ -24,6 +24,8 @@ export const competitorSwitchSurvey: Survey = {
       questions: [
         {
           id: 'companySize',
+          slug: 'companySize',
+          title: 'Company size',
           type: 'singleChoice',
           label: 'Company size',
           required: true,
@@ -31,6 +33,8 @@ export const competitorSwitchSurvey: Survey = {
         },
         {
           id: 'usesCompetitor',
+          slug: 'usesCompetitor',
+          title: 'Uses competitor',
           type: 'boolean',
           label: 'Currently using a competitor product?',
           required: true,
@@ -73,6 +77,8 @@ export const competitorSwitchSurvey: Survey = {
       questions: [
         {
           id: 'npsScore',
+          slug: 'npsScore',
+          title: 'NPS score',
           type: 'nps',
           label: 'How likely are you to recommend us?',
           min: 0,
@@ -103,9 +109,17 @@ export const competitorSwitchSurvey: Survey = {
       id: 'page_2b',
       title: 'Switching questions',
       questions: [
-        { id: 'competitorName', type: 'shortText', label: 'Which product?' },
+        {
+          id: 'competitorName',
+          slug: 'competitorName',
+          title: 'Competitor name',
+          type: 'shortText',
+          label: 'Which product?',
+        },
         {
           id: 'switchReason',
+          slug: 'switchReason',
+          title: 'Switch reason',
           type: 'singleChoice',
           label: 'Main reason for switching',
           required: true,
@@ -172,8 +186,8 @@ export const simpleFeedbackSurvey: Survey = {
       id: 'page_1',
       title: 'Your feedback',
       questions: [
-        { id: 'name', type: 'shortText', label: 'Name', required: true },
-        { id: 'comments', type: 'longText', label: 'Comments' },
+        { id: 'name', slug: 'name', title: 'Name', type: 'shortText', label: 'Name', required: true },
+        { id: 'comments', slug: 'comments', title: 'Comments', type: 'longText', label: 'Comments' },
       ],
       schema: {
         type: 'object',

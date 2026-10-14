@@ -318,6 +318,7 @@ export function QuestionCard({
   const duplicateQuestion = useBuilderStore((s) => s.duplicateQuestion);
   const removeQuestion = useBuilderStore((s) => s.removeQuestion);
   const updateQuestion = useBuilderStore((s) => s.updateQuestion);
+  const finalizeQuestionId = useBuilderStore((s) => s.finalizeQuestionId);
   const setVisibilityRule = useBuilderStore((s) => s.setVisibilityRule);
   const survey = useBuilderStore((s) => s.survey);
   const warningTokens = useTheme().custom.warningBanner;
@@ -443,11 +444,35 @@ export function QuestionCard({
           <Divider sx={{ mb: 2 }} />
           <Stack spacing={2}>
             <TextField
+              label="Title"
+              size="small"
+              fullWidth
+              value={question.title}
+              onChange={(e) => updateQuestion(question.id, { title: e.target.value })}
+              helperText="Internal name for this question, used to generate its slug below. Never shown to respondents -- always editable."
+              // Only takes effect for a just-created question still waiting
+              // on its first title (finalizeQuestionId no-ops otherwise) --
+              // slugifies this title into the question's id, once, so the
+              // author never has to think about ids at all. After that,
+              // further edits here only ever change the title text.
+              onBlur={() => finalizeQuestionId(question.id)}
+            />
+            <TextField
+              label="Slug (question ID)"
+              size="small"
+              fullWidth
+              disabled
+              value={question.slug}
+              helperText="Generated from the title above when this question was first created -- can't be changed afterward."
+              slotProps={{ htmlInput: { sx: { fontFamily: 'monospace' } } }}
+            />
+            <TextField
               label={isLabel ? 'Heading' : 'Label'}
               size="small"
               fullWidth
               value={question.label}
               onChange={(e) => updateQuestion(question.id, { label: e.target.value })}
+              helperText={isLabel ? undefined : 'Shown to the respondent as the question text.'}
             />
             <TextField
               label={isLabel ? 'Body text (optional)' : 'Description (optional)'}

@@ -72,7 +72,7 @@ export function BuilderPage() {
 
   return (
     <Box sx={{ flex: 1, minHeight: 0 }}>
-      <SurveyBuilder survey={survey} onChange={handleChange} onSave={handleSave} />
+      <SurveyBuilder survey={survey} onChange={handleChange} onSave={handleSave} targetElement="color-black" />
     </Box>
   );
 }

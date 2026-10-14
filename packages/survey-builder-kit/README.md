@@ -100,8 +100,19 @@ inside a flex column), or it will collapse to its content height.
 | `survey`   | `Survey \| null \| undefined`     | No       | --                                                                                                |
 | `onChange` | `(survey: Survey) => void`       | No       | As the author edits, debounced ~500ms. Not called on every keystroke.                            |
 | `onSave`   | `(survey: Survey) => void`       | No       | Once per click of the header's Save/Publish button, or Ctrl/Cmd+S.                                |
+| `targetElement` | `string`                   | No       | --                                                                                                |
 
 - `survey={null}` (or `undefined`) starts a new, empty survey.
+- `targetElement` is added to this component's own root element's
+  `className`, nothing more -- not a DOM node or a ref, despite the name.
+  Write a CSS rule scoped to that class in your own stylesheet to theme one
+  mounted instance (e.g. `.acme-blue-theme { ... }`), without touching this
+  library's internals or re-rendering with a different theme object per
+  instance:
+
+  ```tsx
+  <SurveyBuilder survey={survey} targetElement="acme-blue-theme" />
+  ```
 - `survey` is read once, on mount, to seed the editor's internal state, and
   again only if you later pass a *different* survey (a different `id`) --
   it is not a controlled prop the editor re-syncs to on every render. Once
@@ -123,7 +134,7 @@ const blank = newSurvey('Untitled survey');
 
 ```tsx
 import { SurveyRunner } from 'survey-builder-kit';
-import type { Survey } from 'survey-builder-kit';
+import type { Survey, SurveyResponse } from 'survey-builder-kit';
 
 function TakeSurvey({ survey }: { survey: Survey }) {
   return (
@@ -131,7 +142,8 @@ function TakeSurvey({ survey }: { survey: Survey }) {
       <SurveyRunner
         survey={survey}
         onChange={(answers) => autosaveAnswers(answers)}
-        onSubmit={(answers) => submitAnswers(answers)}
+        onSubmit={(response: SurveyResponse) => submitResponse(response)}
+        exitPath="/"
       />
     </div>
   );
@@ -143,15 +155,32 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | `survey`         | `Survey`                                     | Yes      | --                                                                        |
 | `initialAnswers` | `Record<string, unknown>`                   | No       | --                                                                        |
 | `onChange`       | `(answers: Record<string, unknown>) => void` | No       | As the respondent answers, debounced ~500ms.                            |
-| `onSubmit`       | `(answers: Record<string, unknown>) => void` | No       | Once, when the respondent reaches the end of the survey.                |
+| `onSubmit`       | `(response: SurveyResponse) => void`         | No       | Once, when the respondent reaches the end of the survey.                |
+| `exitPath`       | `string`                                     | No       | --                                                                        |
+| `targetElement`  | `string`                                     | No       | --                                                                        |
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
   later changes) -- use it to resume a partially-answered survey.
+- `exitPath`, if given, shows an "Exit" link in the header; clicking it does
+  a full `window.location` navigation to that path/URL (not client-side
+  routing -- this library has no router of its own, and can't depend on
+  one). Omit it to hide the link entirely.
+- `targetElement` works exactly like `<SurveyBuilder>`'s own -- added to
+  this component's root element's `className` only, so your own CSS can
+  theme one mounted instance (`.acme-blue-theme { ... }`) without touching
+  the library or re-rendering with a different theme object.
 - Like `<SurveyBuilder>`, `survey` is validated on mount/swap, with a plain
   error screen on a shape mismatch instead of a crash.
-- `computeScore` is also exported, if you want to compute the same score the
-  runner shows internally (e.g. to persist alongside answers in your own
-  response store):
+- `onSubmit`'s `response` is a full `SurveyResponse` -- not just the raw
+  answers -- so a host doesn't have to re-derive `visitedPageIds`/`score`/
+  timestamps by hand: the runner already has all of that in scope by the
+  time the respondent finishes. `response.id` is freshly generated for this
+  one run; if you want to dedupe retakes of the same survey, key off
+  `surveyId` + `completedAt` instead of `id`.
+- `score` inside `response` is computed automatically from `survey.scoringMap`
+  when `survey.scoring?.enabled` is true, `undefined` otherwise. `computeScore`
+  is also exported directly, if you want to compute a score yourself outside
+  of an `onSubmit` callback (e.g. live, from in-progress `onChange` answers):
 
   ```ts
   import { computeScore } from 'survey-builder-kit';

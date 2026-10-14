@@ -47,7 +47,7 @@ export function VerifyHarnessPage() {
             <SurveyRunner
               survey={runnerSurvey}
               onChange={(answers) => exportJson(`runner-onChange-${Date.now()}.json`, answers)}
-              onSubmit={(answers) => exportJson(`runner-onSubmit-${Date.now()}.json`, answers)}
+              onSubmit={(response) => exportJson(`runner-onSubmit-${Date.now()}.json`, response)}
             />
           </Box>
         </Box>

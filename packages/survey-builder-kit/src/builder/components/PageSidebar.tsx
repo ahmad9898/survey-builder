@@ -9,6 +9,7 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Box, Chip, Collapse, IconButton, Stack, TextField, Tooltip, Typography, useTheme } from '@mui/material';
+import { alpha, type Theme } from '@mui/material/styles';
 import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -23,8 +24,129 @@ import { isPageConditionalOnly, isPageUnconnected, pageFlowOrderDiffers, pageIco
 import { resolvePageIcon } from '../pageIcon';
 import { confirmDeletePage } from '../pageActions';
 import { QUESTION_TYPE_ICONS } from '../questionTypeIcons';
+import { sanitizeFreeTextCode } from '../../lib/id';
 import { ResizeHandle } from './ResizeHandle';
 import type { Survey, SurveyPage } from '../../types/survey';
+
+// The survey's own identity -- name, free-text type, and (if set) the
+// description chip -- sits above the page list rather than in the top
+// toolbar: it's "what survey is this", which belongs with the page list it
+// labels, not alongside Builder/Flow-map/Undo/Publish controls that act on
+// whichever page is currently selected, not on the survey as a whole.
+// Shared pill styling for the Name/Type rows -- bgcolor/border swap to a
+// soft error tint while the value is empty, since both are mandatory; a
+// legacy/imported survey that predates `type` existing just starts in this
+// state until the author fills it in (see Survey.type's own comment on why
+// it isn't backfilled or enforced at the schema/AJV level -- there's no
+// sensible default to invent for free text, so this is enforced as a
+// Builder-UI prompt, not a hard block on loading/saving older data).
+// `theme.palette.error.light` is designed for solid/filled uses (buttons,
+// icons) and reads as alarmingly saturated as a background wash -- alpha()
+// over error.main, the same technique MUI's own Alert uses internally, is
+// what actually gives the soft tint.
+function pillSx(missing: boolean, theme: Theme) {
+  return {
+    display: 'flex' as const,
+    alignItems: 'center',
+    gap: 0.5,
+    bgcolor: missing ? alpha(theme.palette.error.main, 0.08) : 'action.hover',
+    border: '1px solid',
+    borderColor: missing ? alpha(theme.palette.error.main, 0.4) : 'transparent',
+    borderRadius: 5,
+    pl: 1.25,
+    pr: 1,
+    py: 0.5,
+  };
+}
+
+function RequiredMark() {
+  return (
+    <Box component="span" sx={{ color: 'error.main', fontWeight: 700, ml: 0.25 }}>
+      *
+    </Box>
+  );
+}
+
+function SurveyIdentity({ survey }: { survey: Survey }) {
+  const setSurveyTitle = useBuilderStore((s) => s.setSurveyTitle);
+  const setSurveyType = useBuilderStore((s) => s.setSurveyType);
+  const theme = useTheme();
+  const totalQuestions = survey.pages.reduce((sum, p) => sum + p.questions.length, 0);
+  const nameMissing = survey.title.trim().length === 0;
+  const typeMissing = !(survey.type ?? '').trim();
+
+  return (
+    <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Stack spacing={0.75}>
+        {/* Name and Type are the same pill-shaped, labeled-prefix input --
+            Name just stretches full width and reads larger, since it's the
+            primary field; the container styling itself matches exactly. */}
+        <Box sx={pillSx(nameMissing, theme)}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            Name:
+            <RequiredMark />
+          </Typography>
+          <TextField
+            variant="standard"
+            value={survey.title}
+            onChange={(e) => setSurveyTitle(e.target.value)}
+            fullWidth
+            slotProps={{
+              input: {
+                disableUnderline: true,
+                style: { fontSize: '0.8125rem' },
+              },
+            }}
+            sx={{ '& .MuiInputBase-input': { p: 0 } }}
+          />
+        </Box>
+        {nameMissing && (
+          <Typography variant="caption" color="error.main" sx={{ mt: -0.5 }}>
+            Name is required.
+          </Typography>
+        )}
+
+        <Tooltip title="Type -- a free-text category for this survey, e.g. intake, screening">
+          <Box sx={pillSx(typeMissing, theme)}>
+            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+              Type:
+              <RequiredMark />
+            </Typography>
+            <TextField
+              variant="standard"
+              placeholder="—"
+              value={survey.type ?? ''}
+              // Disallowed characters never make it into the value at all --
+              // see sanitizeFreeTextCode's own comment -- so there's no
+              // error state to show for THAT; emptiness is the only error
+              // this field can be in.
+              onChange={(e) => setSurveyType(sanitizeFreeTextCode(e.target.value))}
+              fullWidth
+              slotProps={{ input: { disableUnderline: true, style: { fontSize: '0.8125rem' } } }}
+              sx={{ '& .MuiInputBase-input': { p: 0 } }}
+            />
+          </Box>
+        </Tooltip>
+        {typeMissing && (
+          <Typography variant="caption" color="error.main" sx={{ mt: -0.5 }}>
+            Type is required.
+          </Typography>
+        )}
+        {survey.description && (
+          <Chip
+            size="small"
+            label={survey.description}
+            sx={{ height: 20, fontSize: 11, bgcolor: 'action.hover', fontWeight: 500, alignSelf: 'flex-start' }}
+          />
+        )}
+
+        <Typography variant="caption" color="text.secondary">
+          {survey.pages.length} pages · {totalQuestions} questions
+        </Typography>
+      </Stack>
+    </Box>
+  );
+}
 
 function PageTitle({ page }: { page: SurveyPage }) {
   const setPageTitle = useBuilderStore((s) => s.setPageTitle);
@@ -353,6 +475,7 @@ export function PageSidebar() {
         onChange={setSidebarWidth}
         label="Resize pages panel"
       />
+      <SurveyIdentity survey={survey} />
       <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, py: 1.5 }}>
         <Typography variant="subtitle2">Pages</Typography>
         <Chip size="small" label={survey.pages.length} sx={{ height: 18, fontSize: 11 }} />

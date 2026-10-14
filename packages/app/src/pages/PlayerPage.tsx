@@ -1,20 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Link } from '@mui/material';
-import { SurveyRunner, computeScore } from 'survey-builder-kit';
-import type { Survey } from 'survey-builder-kit';
+import { SurveyRunner } from 'survey-builder-kit';
+import type { Survey, SurveyResponse } from 'survey-builder-kit';
 import { sampleSurveys } from '../fixtures/sampleSurveys';
 import { surveyRepository } from '../storage/surveyRepository';
 import { responseRepository } from '../storage/responseRepository';
-import { newId } from '../lib/id';
 
 export function PlayerPage() {
   const { surveyId } = useParams<{ surveyId: string }>();
   const location = useLocation();
   const surveyFromNavState = (location.state as { survey?: Survey } | null)?.survey;
   const [survey, setSurvey] = useState<Survey | null>(null);
-  const startedAtRef = useRef(new Date().toISOString());
   const savedResponseFor = useRef<string | null>(null);
+
+  // Same reasoning as BuilderPage's own identical effect -- see index.css's
+  // #root.player-shell rule for why this is required, not cosmetic.
+  useEffect(() => {
+    const root = document.getElementById('root');
+    root?.classList.add('player-shell');
+    return () => {
+      root?.classList.remove('player-shell');
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,24 +42,13 @@ export function PlayerPage() {
     };
   }, [surveyId, surveyFromNavState]);
 
-  const handleSubmit = (answers: Record<string, unknown>) => {
+  // <SurveyRunner>'s onSubmit now hands back a full SurveyResponse (id,
+  // visitedPageIds, score, timestamps included) -- nothing left to
+  // re-derive here, just persist it as-is.
+  const handleSubmit = (response: SurveyResponse) => {
     if (!survey || savedResponseFor.current === survey.id) return;
     savedResponseFor.current = survey.id;
-    const score = survey.scoring?.enabled
-      ? computeScore(survey.scoringMap, answers, survey.scoring.categories, survey.scoring.passThreshold)
-      : undefined;
-    responseRepository.save({
-      id: newId('response'),
-      surveyId: survey.id,
-      surveyVersion: survey.version,
-      answers,
-      // <SurveyRunner>'s public API doesn't expose page-visit history (only
-      // final answers), so this app-level record can no longer track it.
-      visitedPageIds: [],
-      score,
-      startedAt: startedAtRef.current,
-      completedAt: new Date().toISOString(),
-    });
+    responseRepository.save(response);
   };
 
   if (!survey) {
@@ -67,7 +64,7 @@ export function PlayerPage() {
 
   return (
     <Box sx={{ flex: 1, minHeight: 0 }}>
-      <SurveyRunner survey={survey} onSubmit={handleSubmit} />
+      <SurveyRunner survey={survey} onSubmit={handleSubmit} exitPath="/" targetElement="color-black" />
     </Box>
   );
 }

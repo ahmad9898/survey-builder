@@ -57,6 +57,23 @@ export type QuestionType =
 
 export interface QuestionDef {
   id: string; // property key, unique survey-wide
+  // Always equal to `id` -- `id` IS a slug of `title` (see slugifyUnique/
+  // finalizeQuestionId in the builder store), kept in sync with it
+  // everywhere `id` is set. Exposed as its own field so a host reading the
+  // published survey or a submitted response doesn't need to already know
+  // that fact to find it -- see AnswerEntry.slug for the response-side
+  // counterpart. Survey JSON saved before this field existed doesn't have
+  // it; normalizeSurvey() backfills it from `id`.
+  slug: string;
+  // The author-facing name for this question -- same role `Survey.title`/
+  // `SurveyPage.title` play at their levels, distinct from `label` (the
+  // text shown to the RESPONDENT). Freely editable at any time, unlike
+  // `slug`/`id`: only the slug derived from it, once, at creation, is
+  // locked (finalizeQuestionId) -- editing `title` afterward never moves
+  // it. Never rendered in <SurveyRunner> -- Builder-only. Survey JSON
+  // saved before this field existed doesn't have it; normalizeSurvey()
+  // backfills it from `label`.
+  title: string;
   type: QuestionType;
   label: string;
   description?: string;
@@ -126,6 +143,19 @@ export const CURRENT_SCHEMA_VERSION = 1;
 export interface Survey {
   id: string;
   title: string;
+  // Free-text category/classification for the survey as a whole (e.g.
+  // "intake", "screening") -- unrelated to QuestionDef.type (a different
+  // object; same English word, different concept). Letters, digits,
+  // underscores, and hyphens only -- no spaces or other punctuation; the
+  // Builder strips disallowed characters as they're typed rather than
+  // erroring, so this is never actually invalid, just possibly absent.
+  // The Builder UI treats this (and `title`) as mandatory -- shown with a
+  // required marker and an inline error while empty -- but it stays
+  // optional here and isn't AJV-required: a survey saved before this field
+  // existed has no sensible default to invent for free text, so it must
+  // still be able to load (just prompting the author to fill it in), not
+  // fail validation outright.
+  type?: string;
   description?: string;
   schemaVersion: number;
   version: number;

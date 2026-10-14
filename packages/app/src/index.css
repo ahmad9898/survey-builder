@@ -42,21 +42,25 @@
   box-sizing: border-box;
 }
 
-/* The builder is a workspace/tool, not a content page: it needs the full
-   viewport to lay out palette + canvas + property panel + preview side by
-   side without clipping. BuilderPage toggles this class on #root instead of
-   narrowing every other route to fit the builder's needs.
+/* The builder and the survey-taking screen are both full-viewport tools,
+   not content pages: BuilderPage/PlayerPage each toggle one of these
+   classes on #root while mounted, instead of narrowing every other route
+   to fit their needs.
 
    `height` (not just the base rule's `min-height`) is required here:
-   <SurveyBuilder> fills its container via `height: 100%` all the way down
-   (BuilderLayout's root, the Flow map's canvas, etc.), and CSS only resolves
-   a percentage height against an ancestor whose own height is "definite" --
+   <SurveyBuilder>/<SurveyRunner> both fill their container via `height:
+   100%` all the way down (BuilderLayout's root and the Flow map's canvas;
+   RunnerShell's root and SubmittedScreen), and CSS only resolves a
+   percentage height against an ancestor whose own height is "definite" --
    a height derived purely from `min-height` several levels up does not
    count, even though flexbox lays it out at a concrete pixel size. Without
-   this, the Flow map (and anything else sized via height:100%) silently
-   collapses to its content's natural height instead of filling the window,
-   intermittently clipping content with no error. */
-#root.builder-shell {
+   this, anything sized via height:100% inside either component silently
+   collapses to its content's natural height instead of filling the window
+   -- normally invisible (same background color either way), but very
+   visible the moment a host colors that area via targetElement, which is
+   how this was actually found. */
+#root.builder-shell,
+#root.player-shell {
   width: 100%;
   max-width: none;
   border-inline: none;
@@ -79,20 +83,24 @@ h1 {
   font-size: 56px;
   letter-spacing: -1.68px;
   margin: 32px 0;
+
   @media (max-width: 1024px) {
     font-size: 36px;
     margin: 20px 0;
   }
 }
+
 h2 {
   font-size: 24px;
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
+
   @media (max-width: 1024px) {
     font-size: 20px;
   }
 }
+
 p {
   margin: 0;
 }
@@ -110,4 +118,12 @@ code {
   line-height: 135%;
   padding: 4px 8px;
   background: var(--code-bg);
+}
+
+/* survey-builder-kit's targetElement -- scoped override for <SurveyBuilder>/
+   <SurveyRunner> instances mounted with targetElement="color-black" (see
+   BuilderPage.tsx/PlayerPage.tsx). Lands on the component's own root
+   element, so this only affects that one mounted instance. */
+.color-black {
+  background-color: #000000;
 }

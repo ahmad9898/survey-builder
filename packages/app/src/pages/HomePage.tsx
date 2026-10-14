@@ -54,9 +54,14 @@ export function HomePage() {
 
   return (
     <Box sx={{ maxWidth: 640, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Survey Builder
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Typography variant="h4" gutterBottom>
+          Survey Builder
+        </Typography>
+        <Link component={RouterLink} to="/viewer">
+          Answers Viewer
+        </Link>
+      </Stack>
 
       <Stack direction="row" spacing={2} sx={{ my: 2 }}>
         <Button variant="contained" onClick={handleNew}>

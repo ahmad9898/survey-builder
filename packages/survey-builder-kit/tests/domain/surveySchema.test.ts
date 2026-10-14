@@ -96,4 +96,65 @@ describe('normalizeSurvey', () => {
     const normalized = normalizeSurvey(survey);
     expect(normalized.pages).toBe(survey.pages); // same reference -- no unnecessary rebuild
   });
+
+  it('backfills slug from id for a question saved before slug existed', () => {
+    const survey = newSurvey();
+    survey.pages[0].questions.push({
+      // Cast past the current type -- this is exactly the shape sitting in
+      // a user's saved survey JSON from before QuestionDef grew `slug`.
+      id: 'name',
+      type: 'shortText',
+      label: 'What is your name?',
+    } as never);
+
+    const normalized = normalizeSurvey(survey);
+
+    expect(normalized.pages[0].questions[0].slug).toBe('name');
+  });
+
+  it('leaves an already-present slug untouched', () => {
+    const survey = newSurvey();
+    survey.pages[0].questions.push({
+      id: 'name',
+      slug: 'a-custom-slug',
+      title: 'What is your name?',
+      type: 'shortText',
+      label: 'What is your name?',
+    });
+
+    const normalized = normalizeSurvey(survey);
+
+    expect(normalized.pages[0].questions[0].slug).toBe('a-custom-slug');
+  });
+
+  it('backfills title from label for a question saved before title existed', () => {
+    const survey = newSurvey();
+    survey.pages[0].questions.push({
+      // Cast past the current type -- this is exactly the shape sitting in
+      // a user's saved survey JSON from before QuestionDef grew `title`.
+      id: 'name',
+      slug: 'name',
+      type: 'shortText',
+      label: 'What is your name?',
+    } as never);
+
+    const normalized = normalizeSurvey(survey);
+
+    expect(normalized.pages[0].questions[0].title).toBe('What is your name?');
+  });
+
+  it('leaves an already-present title untouched', () => {
+    const survey = newSurvey();
+    survey.pages[0].questions.push({
+      id: 'name',
+      slug: 'name',
+      title: 'A custom internal title',
+      type: 'shortText',
+      label: 'What is your name?',
+    });
+
+    const normalized = normalizeSurvey(survey);
+
+    expect(normalized.pages[0].questions[0].title).toBe('A custom internal title');
+  });
 });

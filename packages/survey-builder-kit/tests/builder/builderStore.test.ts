@@ -367,3 +367,111 @@ describe('setPageBlocksSubmission', () => {
     expect(page.defaultNextPageId).toBe('end'); // not auto-restored; a manual "Otherwise, go to" choice if the author wants it to lead elsewhere again
   });
 });
+
+describe('finalizeQuestionId', () => {
+  it('sets slug === id right from creation, before any title is typed', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const question = useBuilderStore.getState().survey.pages[0].questions[0];
+    expect(question.slug).toBe(question.id);
+  });
+
+  it('replaces a freshly-created question\'s placeholder id (and slug) with a slug of its TITLE, once', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const placeholderId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    expect(placeholderId).toBe('shortText1'); // unchanged until finalized
+
+    useBuilderStore.getState().updateQuestion(placeholderId, { title: 'What is your name?' });
+    useBuilderStore.getState().finalizeQuestionId(placeholderId);
+
+    const question = useBuilderStore.getState().survey.pages[0].questions[0];
+    expect(question.id).toBe('what-is-your-name');
+    expect(question.slug).toBe('what-is-your-name');
+    expect(question.title).toBe('What is your name?');
+    expect(useBuilderStore.getState().selectedQuestionId).toBe('what-is-your-name');
+  });
+
+  it('is unaffected by editing LABEL (the respondent-facing text) -- only title drives the slug', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const question0 = useBuilderStore.getState().survey.pages[0].questions[0];
+    const defaultTitle = question0.title; // untouched -- still the type's default
+
+    // Edit ONLY the label, never the title, then finalize (e.g. the title
+    // field was blurred too, with nothing typed into it).
+    useBuilderStore.getState().updateQuestion(question0.id, { label: 'What is your name?' });
+    useBuilderStore.getState().finalizeQuestionId(question0.id);
+
+    // The resulting slug comes from the untouched (default) TITLE, not from
+    // the label edit -- proves label edits can't influence the slug at all.
+    const question = useBuilderStore.getState().survey.pages[0].questions[0];
+    expect(question.title).toBe(defaultTitle);
+    expect(question.id).not.toBe('what-is-your-name');
+    expect(question.label).toBe('What is your name?');
+  });
+
+  it('is a no-op the second time it is called for the same question', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const placeholderId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    useBuilderStore.getState().updateQuestion(placeholderId, { title: 'First title' });
+    useBuilderStore.getState().finalizeQuestionId(placeholderId);
+    const finalizedId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+
+    // A later title edit (ordinary editing, post-creation) must never move the id again.
+    useBuilderStore.getState().updateQuestion(finalizedId, { title: 'Completely different title' });
+    useBuilderStore.getState().finalizeQuestionId(finalizedId);
+
+    const question = useBuilderStore.getState().survey.pages[0].questions[0];
+    expect(question.id).toBe(finalizedId);
+    expect(question.slug).toBe(finalizedId);
+    expect(question.title).toBe('Completely different title');
+  });
+
+  it('is a no-op for a question that was never the most recently created one', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const firstId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    useBuilderStore.getState().addQuestion(pageId, 'shortText'); // firstId is no longer "fresh"
+
+    useBuilderStore.getState().updateQuestion(firstId, { title: 'Renamed much later' });
+    useBuilderStore.getState().finalizeQuestionId(firstId);
+
+    expect(useBuilderStore.getState().survey.pages[0].questions[0].id).toBe(firstId);
+  });
+
+  it('dedupes against an existing id survey-wide, appending -2', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const firstId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    useBuilderStore.getState().updateQuestion(firstId, { title: 'Name' });
+    useBuilderStore.getState().finalizeQuestionId(firstId);
+    expect(useBuilderStore.getState().survey.pages[0].questions[0].id).toBe('name');
+
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const secondId = useBuilderStore.getState().survey.pages[0].questions[1].id;
+    useBuilderStore.getState().updateQuestion(secondId, { title: 'Name' });
+    useBuilderStore.getState().finalizeQuestionId(secondId);
+
+    expect(useBuilderStore.getState().survey.pages[0].questions[1].id).toBe('name-2');
+  });
+
+  it('falls back to the placeholder id when the title slugifies to nothing', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const placeholderId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    useBuilderStore.getState().updateQuestion(placeholderId, { title: '???' });
+
+    useBuilderStore.getState().finalizeQuestionId(placeholderId);
+
+    expect(useBuilderStore.getState().survey.pages[0].questions[0].id).toBe(placeholderId);
+  });
+});
+
+describe('setSurveyType', () => {
+  it('sets Survey.type as given -- sanitization is the UI\'s job, not this setter\'s', () => {
+    useBuilderStore.getState().setSurveyType('intake-2026');
+    expect(useBuilderStore.getState().survey.type).toBe('intake-2026');
+  });
+});

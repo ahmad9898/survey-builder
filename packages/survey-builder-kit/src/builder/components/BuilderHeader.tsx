@@ -10,8 +10,6 @@ import {
   Menu,
   MenuItem,
   Slide,
-  Stack,
-  TextField,
   Toolbar,
   ToggleButton,
   ToggleButtonGroup,
@@ -69,7 +67,6 @@ export function BuilderHeader({
   onSave: () => void;
 }) {
   const survey = useBuilderStore((s) => s.survey);
-  const setSurveyTitle = useBuilderStore((s) => s.setSurveyTitle);
   const viewMode = useBuilderStore((s) => s.viewMode);
   const setViewMode = useBuilderStore((s) => s.setViewMode);
   const undo = useBuilderStore((s) => s.undo);
@@ -88,7 +85,6 @@ export function BuilderHeader({
   // implementation.
   const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
 
-  const totalQuestions = survey.pages.reduce((sum, p) => sum + p.questions.length, 0);
   const statusMeta = SAVE_STATUS_META[saveStatus];
 
   return (
@@ -98,29 +94,8 @@ export function BuilderHeader({
       sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider' }}
     >
       <Toolbar sx={{ height: 64, minHeight: '64px !important', gap: 1.5 }}>
-        <Box sx={{ minWidth: 0 }}>
-          <Stack direction="row" alignItems="center" spacing={1}>
-            <TextField
-              variant="standard"
-              value={survey.title}
-              onChange={(e) => setSurveyTitle(e.target.value)}
-              slotProps={{
-                input: {
-                  disableUnderline: true,
-                  style: { fontSize: '1.05rem', fontWeight: 700 },
-                },
-              }}
-              sx={{ '& .MuiInputBase-input': { p: 0 } }}
-            />
-            {survey.description && (
-              <Chip size="small" label={survey.description} sx={{ bgcolor: 'action.hover', fontWeight: 500 }} />
-            )}
-          </Stack>
-          <Typography variant="caption" color="text.secondary">
-            {survey.pages.length} pages · {totalQuestions} questions
-          </Typography>
-        </Box>
-
+        {/* Survey name/type/description now live in PageSidebar, above the
+            page list -- see PageSidebar's own "survey identity" block. */}
         <Box sx={{ flex: 1 }} />
 
         <ToggleButtonGroup

@@ -49,6 +49,10 @@ const questionDefSchema = {
   required: ['id', 'type', 'label'],
   properties: {
     id: { type: 'string' },
+    // Neither required -- see normalizeSurvey's slug/title backfills below
+    // -- a question saved before these fields existed doesn't have them yet.
+    slug: { type: 'string' },
+    title: { type: 'string' },
     type: {
       enum: [
         'shortText',
@@ -92,6 +96,10 @@ export const surveySchema = {
   properties: {
     id: { type: 'string' },
     title: { type: 'string' },
+    // The Survey's own free-text classification field -- unrelated to this
+    // schema object's own `type: 'object'` keyword above, or to
+    // QuestionDef's `type` enum (a different, nested schema object).
+    type: { type: 'string' },
     schemaVersion: { type: 'number' },
     version: { type: 'number' },
     createdAt: { type: 'string' },
@@ -166,6 +174,47 @@ function normalizeLegacyDisqualifyingOptions(survey: Survey): Survey {
   return pagesChanged ? { ...survey, pages } : survey;
 }
 
+// `slug` was added after `id` already existed -- every question saved
+// before that point has `id` but no `slug`. Since `id` already IS a slug
+// (just not exposed under that name yet for older data), backfilling is a
+// straight copy, not a guess.
+function normalizeQuestionSlugs(survey: Survey): Survey {
+  let pagesChanged = false;
+  const pages = survey.pages.map((page) => {
+    let questionsChanged = false;
+    const questions = page.questions.map((q) => {
+      if (typeof q.slug === 'string') return q;
+      questionsChanged = true;
+      return { ...q, slug: q.id };
+    });
+    if (!questionsChanged) return page;
+    pagesChanged = true;
+    return { ...page, questions };
+  });
+  return pagesChanged ? { ...survey, pages } : survey;
+}
+
+// `title` was added after `label` already existed, as a distinct
+// author-facing name decoupled from the respondent-facing `label` --
+// before that, `label` doubled as the slug source. Backfilling from
+// `label` preserves that: an older question's already-finalized slug still
+// matches what `title` would slugify to.
+function normalizeQuestionTitles(survey: Survey): Survey {
+  let pagesChanged = false;
+  const pages = survey.pages.map((page) => {
+    let questionsChanged = false;
+    const questions = page.questions.map((q) => {
+      if (typeof q.title === 'string') return q;
+      questionsChanged = true;
+      return { ...q, title: q.label };
+    });
+    if (!questionsChanged) return page;
+    pagesChanged = true;
+    return { ...page, questions };
+  });
+  return pagesChanged ? { ...survey, pages } : survey;
+}
+
 // Backfills/repairs fields the `Survey` TypeScript type now expects but an
 // already-saved (or hand-authored) survey might predate, so JSON from
 // before a shape changed keeps working rather than crashing or being
@@ -176,5 +225,7 @@ export function normalizeSurvey(survey: Survey): Survey {
     next = { ...next, schemaVersion: CURRENT_SCHEMA_VERSION };
   }
   next = normalizeLegacyDisqualifyingOptions(next);
+  next = normalizeQuestionTitles(next);
+  next = normalizeQuestionSlugs(next);
   return next;
 }

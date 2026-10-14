@@ -10,10 +10,11 @@ export interface RunnerHeaderProps {
   totalSteps: number;
   canGoBack: boolean;
   onBack: () => void;
-  onSaveAndExit?: () => void;
+  /** Shown as the "Exit" link in the header, only when provided -- see SurveyRunnerProps.exitPath, which is what actually supplies this. */
+  onExit?: () => void;
 }
 
-export function RunnerHeader({ surveyTitle, currentStep, totalSteps, canGoBack, onBack, onSaveAndExit }: RunnerHeaderProps) {
+export function RunnerHeader({ surveyTitle, currentStep, totalSteps, canGoBack, onBack, onExit }: RunnerHeaderProps) {
   const dotCount = Math.min(totalSteps, MAX_DOTS);
 
   return (
@@ -62,10 +63,14 @@ export function RunnerHeader({ surveyTitle, currentStep, totalSteps, canGoBack, 
             />
           ))}
         </Stack>
-        <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-        <Link component="button" underline="hover" color="text.secondary" variant="body2" onClick={onSaveAndExit}>
-          Save &amp; exit
-        </Link>
+        {onExit && (
+          <>
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+            <Link component="button" underline="hover" color="text.secondary" variant="body2" onClick={onExit}>
+              Exit
+            </Link>
+          </>
+        )}
       </Stack>
     </Stack>
   );

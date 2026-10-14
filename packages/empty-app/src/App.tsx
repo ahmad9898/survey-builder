@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { Link, Route, Routes } from 'react-router-dom'
 import heroImg from './assets/hero.png'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
+import { SurveyBuilderPage } from './pages/SurveyBuilderPage'
+import { SurveyRunnerPage } from './pages/SurveyRunnerPage'
 import './App.css'
 
-function App() {
+function Home() {
   const [count, setCount] = useState(0)
 
   return (
@@ -28,6 +31,11 @@ function App() {
         >
           Count is {count}
         </button>
+        <p>
+          <Link to="/survey-builder">Open Survey Builder →</Link>
+          {' · '}
+          <Link to="/survey-runner">Open Survey Runner →</Link>
+        </p>
       </section>
 
       <div className="ticks"></div>
@@ -116,6 +124,16 @@ function App() {
       <div className="ticks"></div>
       <section id="spacer"></section>
     </>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/survey-builder" element={<SurveyBuilderPage />} />
+      <Route path="/survey-runner" element={<SurveyRunnerPage />} />
+    </Routes>
   )
 }
 

@@ -4,6 +4,7 @@ import { usePlayerStore, usePlayerStoreApi } from '../../store/playerStore';
 import { resolveNextPage } from '../../../domain/branchingEngine';
 import { evaluateConditionGroup } from '../../../domain/conditionEvaluator';
 import { estimateProgress } from '../../../domain/flowLayout';
+import { formatAnswerDisplay } from '../../../domain/answerFormatting';
 import type { QuestionDef } from '../../../types/survey';
 import { ProgressRail } from './ProgressRail';
 import { RunnerHeader } from './RunnerHeader';
@@ -20,19 +21,12 @@ function visibleQuestionsOf(questions: QuestionDef[], answers: Record<string, un
   return questions.filter((q) => isVisible(q, answers));
 }
 
-function formatAnswer(question: QuestionDef, value: unknown): string {
-  if (value === undefined || value === null || value === '') return '(skipped)';
-  if (question.type === 'boolean') return value ? 'Yes' : 'No';
-  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '(skipped)';
-  return String(value);
-}
-
 // The runner's atomic step is a PAGE: a page with exactly one visible
 // question gets the full-screen single-question treatment (QuestionStage);
 // a page with more than one shows them all together on one screen
 // (MultiQuestionStage) rather than splitting fields that belong together
 // (e.g. "Weight & Height") into separate steps.
-export function RunnerShell() {
+export function RunnerShell({ exitPath }: { exitPath?: string }) {
   const survey = usePlayerStore((s) => s.survey);
   const currentPageId = usePlayerStore((s) => s.currentPageId);
   const answers = usePlayerStore((s) => s.answers);
@@ -184,7 +178,7 @@ export function RunnerShell() {
     ? visitedPageStack
         .flatMap((pageId) => survey.pages.find((p) => p.id === pageId)?.questions ?? [])
         .filter((q) => q.type !== 'label' && isVisible(q, answers))
-        .map((question) => ({ question, answerText: formatAnswer(question, answers[question.id]) }))
+        .map((question) => ({ question, answerText: formatAnswerDisplay(question, answers[question.id]) }))
     : [];
 
   const liveMessage = errorMessage ?? (reviewing ? 'Review your answers' : `Question ${progress.currentStep} of ${progress.totalSteps}`);
@@ -198,6 +192,12 @@ export function RunnerShell() {
         totalSteps={progress.totalSteps}
         canGoBack={reviewing || canGoBack}
         onBack={handleBack}
+        // A full browser navigation, not a client-side route change -- this
+        // library has no router of its own (and can't depend on one; see
+        // SurveyRunnerProps.exitPath's own comment), so this is the only
+        // host-agnostic way to leave. Fine for a same-origin SPA route too,
+        // just not as seamless as that host's own client-side navigation.
+        onExit={exitPath ? () => window.location.assign(exitPath) : undefined}
       />
       <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', px: 3, py: 4 }}>
         {reviewing ? (

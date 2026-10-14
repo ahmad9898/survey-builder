@@ -2,7 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { CURRENT_SCHEMA_VERSION, type BranchRule, type ConditionGroup, type QuestionDef, type QuestionType, type ScoringEntry, type Survey, type SurveyPage } from '../../types/survey';
 import { compilePage } from '../../domain/schemaCompiler';
 import { collapseSingleEdge, pageHasNoFallbackRisk } from '../../domain/branchInvariant';
-import { newFieldId, newId } from '../../lib/id';
+import { newFieldId, newId, slugifyUnique } from '../../lib/id';
 import { createStoreContext } from '../../lib/createStoreContext';
 import { questionTypeMeta } from '../questionTypes';
 import type { FlowLayoutStoreApi } from './flowLayoutStore';
@@ -52,9 +52,17 @@ export interface BuilderState {
   selectedPageId: string | null;
   selectedQuestionId: string | null;
   viewMode: BuilderViewMode;
+  // The single most-recently-created question, if its id is still a
+  // placeholder (newFieldId's type-based id, e.g. "shortText3") waiting to
+  // be replaced by a slug of its real title -- see finalizeQuestionId. Only
+  // ever one at a time (set by addQuestion, cleared by finalizeQuestionId),
+  // and not persisted on the Survey itself: purely in-memory authoring-UI
+  // state, reset to null on reload like selectedQuestionId.
+  freshQuestionId: string | null;
 
   loadSurvey: (survey: Survey) => void;
   setSurveyTitle: (title: string) => void;
+  setSurveyType: (type: string) => void;
   setViewMode: (mode: BuilderViewMode) => void;
 
   addPage: () => void;
@@ -82,7 +90,20 @@ export interface BuilderState {
   removeQuestion: (questionId: string) => void;
   reorderQuestion: (pageId: string, fromIndex: number, toIndex: number) => void;
   selectQuestion: (questionId: string | null) => void;
-  updateQuestion: (questionId: string, patch: Partial<QuestionDef>) => void;
+  // `id` deliberately excluded from the patch shape -- a question's id is
+  // only ever auto-derived from its title once, right after creation (see
+  // addQuestion/finalizeQuestionId); editing the title afterward must never
+  // change it (branch/visibility conditions, scoringMap keys, and already-
+  // saved responses all embed the id as a plain string, not a live
+  // reference -- see finalizeQuestionId's own comment).
+  updateQuestion: (questionId: string, patch: Partial<Omit<QuestionDef, 'id'>>) => void;
+  // Call once the author is done naming a just-created question (e.g. the
+  // title field's onBlur) -- replaces its placeholder id with a slug of its
+  // current title, deduped survey-wide, but ONLY if this is still the
+  // question addQuestion most recently created and nothing has finalized it
+  // yet. A no-op every time after the first (including for every other,
+  // already-locked question), by design -- see the field's own comment.
+  finalizeQuestionId: (questionId: string) => void;
   setVisibilityRule: (questionId: string, group: ConditionGroup | null) => void;
 
   setScoringEnabled: (enabled: boolean) => void;
@@ -150,6 +171,7 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
     survey: initialSurvey,
     selectedPageId: initialSurvey.pages[0]?.id ?? null,
     selectedQuestionId: null,
+    freshQuestionId: null,
     viewMode: 'builder',
     history: { past: [], future: [] },
 
@@ -164,6 +186,7 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
         survey,
         selectedPageId: survey.pages[0]?.id ?? null,
         selectedQuestionId: null,
+        freshQuestionId: null,
         history: { past: [], future: [] },
       });
       isTimeTraveling = false;
@@ -171,6 +194,13 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
 
     setSurveyTitle: (title) =>
       set((s) => ({ survey: { ...s.survey, title, updatedAt: new Date().toISOString() } })),
+
+    // The host/UI is responsible for passing already-sanitized input (see
+    // BuilderHeader's Type field) -- this setter doesn't re-sanitize so
+    // hand-authored/imported survey JSON isn't silently rewritten just by
+    // loading it into the store.
+    setSurveyType: (type) =>
+      set((s) => ({ survey: { ...s.survey, type, updatedAt: new Date().toISOString() } })),
 
     setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -238,7 +268,7 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           // not the raw question id -- see setScoringForQuestion.
           const existingScoring = s.survey.scoringMap?.[`#/properties/${q.id}`];
           if (existingScoring) scoringMap[`#/properties/${copyId}`] = existingScoring;
-          return { ...q, id: copyId };
+          return { ...q, id: copyId, slug: copyId };
         });
         const copy = recompilePage({
           ...original,
@@ -400,6 +430,8 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
         const id = newFieldId(allFieldIds(s.survey), type);
         const question: QuestionDef = {
           id,
+          slug: id,
+          title: meta.defaultLabel,
           type,
           label: meta.defaultLabel,
           ...(type === 'singleChoice' || type === 'multipleChoice'
@@ -417,6 +449,10 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           survey: { ...s.survey, pages, updatedAt: new Date().toISOString() },
           selectedQuestionId: id,
           selectedPageId: pageId,
+          // Starts fresh -- its placeholder id (e.g. "shortText3") is
+          // eligible to be replaced by a slug of the title once the author
+          // types one in and finishes (finalizeQuestionId).
+          freshQuestionId: id,
         };
       }),
 
@@ -426,7 +462,13 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
         const original = page?.questions.find((q) => q.id === questionId);
         if (!page || !original) return s;
         const copyId = newFieldId(allFieldIds(s.survey), original.type);
-        const copy: QuestionDef = { ...original, id: copyId, label: `${original.label} (copy)` };
+        const copy: QuestionDef = {
+          ...original,
+          id: copyId,
+          slug: copyId,
+          title: `${original.title} (copy)`,
+          label: `${original.label} (copy)`,
+        };
         const pages = s.survey.pages.map((p) => {
           if (p.id !== page.id) return p;
           const index = p.questions.findIndex((q) => q.id === questionId);
@@ -438,6 +480,7 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           survey: { ...s.survey, pages, updatedAt: new Date().toISOString() },
           selectedQuestionId: copyId,
           selectedPageId: page.id,
+          freshQuestionId: copyId,
         };
       }),
 
@@ -451,6 +494,7 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
         return {
           survey: { ...s.survey, pages, scoringMap, updatedAt: new Date().toISOString() },
           selectedQuestionId: s.selectedQuestionId === questionId ? null : s.selectedQuestionId,
+          freshQuestionId: s.freshQuestionId === questionId ? null : s.freshQuestionId,
         };
       }),
 
@@ -476,6 +520,41 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           return recompilePage({ ...p, questions });
         });
         return { survey: { ...s.survey, pages, updatedAt: new Date().toISOString() } };
+      }),
+
+    // One-shot: only does anything the FIRST time it's called for whichever
+    // question addQuestion/duplicateQuestion most recently created (tracked
+    // by freshQuestionId) -- every later call, for this question or any
+    // other, is a no-op. This is deliberately NOT a general-purpose
+    // "rename id" action: it only ever fires once, right after creation,
+    // before a brand-new question's id could plausibly be referenced
+    // anywhere else (a branch/visibility condition, a scoringMap entry, a
+    // saved response) -- those all embed the id as a plain string, not a
+    // live reference, so renaming an id already in use elsewhere would
+    // silently orphan those references. Renaming an *older* question's id
+    // is intentionally not supported at all.
+    finalizeQuestionId: (questionId) =>
+      set((s) => {
+        if (s.freshQuestionId !== questionId) return {};
+        const page = findPageContainingQuestion(s.survey, questionId);
+        const question = page?.questions.find((q) => q.id === questionId);
+        if (!page || !question) return { freshQuestionId: null };
+
+        const otherIds = allFieldIds(s.survey);
+        otherIds.delete(questionId);
+        const newId = slugifyUnique(question.title, otherIds, questionId);
+        if (newId === questionId) return { freshQuestionId: null };
+
+        const pages = s.survey.pages.map((p) => {
+          if (p.id !== page.id) return p;
+          const questions = p.questions.map((q) => (q.id === questionId ? { ...q, id: newId, slug: newId } : q));
+          return recompilePage({ ...p, questions });
+        });
+        return {
+          survey: { ...s.survey, pages, updatedAt: new Date().toISOString() },
+          selectedQuestionId: s.selectedQuestionId === questionId ? newId : s.selectedQuestionId,
+          freshQuestionId: null,
+        };
       }),
 
     setVisibilityRule: (questionId, group) => {

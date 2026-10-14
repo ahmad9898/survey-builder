@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider } from '@emotion/react';
@@ -20,6 +21,14 @@ export interface SurveyBuilderProps {
   onChange?: (survey: Survey) => void;
   /** Fires when the author clicks the header's Save/Publish action (or presses Ctrl/Cmd+S). */
   onSave?: (survey: Survey) => void;
+  /**
+   * Added to this component's own root element's `className`, nothing more
+   * -- not a DOM node or a ref, despite the name. Lets a host theme ONE
+   * mounted instance purely from its own CSS (`.acme-blue-theme { ... }`),
+   * without touching this library's internals or re-rendering with a
+   * different theme object per instance. Omit it for no extra class.
+   */
+  targetElement?: string;
 }
 
 // One Emotion cache per component, keyed distinctly from SurveyRunner's --
@@ -43,16 +52,25 @@ export function SurveyBuilder(props: SurveyBuilderProps) {
     <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        {!validation.valid ? (
-          <SurveyValidationError errors={validation.errors} />
-        ) : (
-          // initialSurvey seeds the store ONCE, at mount (via createBuilderStore's
-          // default param) -- later prop changes are handled explicitly by
-          // SurveyBuilderInner's effect below, not by recreating the store.
-          <BuilderStoreProvider initialSurvey={props.survey ? normalizeSurvey(props.survey) : undefined}>
-            <SurveyBuilderInner {...props} />
-          </BuilderStoreProvider>
-        )}
+        {/* The one DOM wrapper between the (non-DOM) providers above and
+            whichever branch renders below -- targetElement's whole
+            mechanism is this className, so it has to land on every render
+            path (error state included), not just the happy path. height:
+            '100%' here, not on this Box's child, is what lets the existing
+            "renders at height: 100% of whatever you mount it in" contract
+            keep working with an extra DOM layer now in between. */}
+        <Box className={props.targetElement} sx={{ height: '100%' }}>
+          {!validation.valid ? (
+            <SurveyValidationError errors={validation.errors} />
+          ) : (
+            // initialSurvey seeds the store ONCE, at mount (via createBuilderStore's
+            // default param) -- later prop changes are handled explicitly by
+            // SurveyBuilderInner's effect below, not by recreating the store.
+            <BuilderStoreProvider initialSurvey={props.survey ? normalizeSurvey(props.survey) : undefined}>
+              <SurveyBuilderInner {...props} />
+            </BuilderStoreProvider>
+          )}
+        </Box>
       </ThemeProvider>
     </CacheProvider>
   );
