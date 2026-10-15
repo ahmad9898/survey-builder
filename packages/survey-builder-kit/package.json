@@ -21,7 +21,8 @@
     "dev": "vite build --watch --configLoader native",
     "build": "tsc -b && vite build --configLoader native",
     "lint": "oxlint",
-    "test": "vitest run --configLoader runner"
+    "test": "vitest run --configLoader runner",
+    "prepare": "npm run build"
   },
   "peerDependencies": {
     "@emotion/cache": "^11.14.0",
