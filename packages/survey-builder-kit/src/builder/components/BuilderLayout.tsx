@@ -47,7 +47,13 @@ export function BuilderLayout({
     // standalone app's own page gives that container 100vh itself (see
     // packages/app's "builder-shell" CSS), but a library component can't
     // assume it owns the full browser viewport the way a dedicated route did.
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+    //
+    // No bgcolor here deliberately: the header/sidebar/inspector are their
+    // own opaque panels (background.paper), but this root has nothing to
+    // paint behind the page canvas -- so a host's bgColor background (see
+    // SurveyBuilder.tsx) shows through there instead of being hidden under
+    // a second, redundant opaque layer.
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <BuilderHeader saveStatus={saveStatus} onSave={onSave} />
       <Box sx={{ flex: 1, display: 'flex', minHeight: 0 }}>
         <PageSidebar />

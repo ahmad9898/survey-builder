@@ -388,9 +388,9 @@ export function QuestionCard({
           <Typography variant="body2" fontWeight={600} noWrap>
             {question.label || '(untitled question)'}
           </Typography>
-          {(question.required || question.visibilityRule) && (
+          {(question.required || question.visibilityRule || question.hasTrigger) && (
             <Typography variant="caption" color="text.secondary">
-              {[question.required && 'Required', question.visibilityRule && 'Conditional']
+              {[question.required && 'Required', question.visibilityRule && 'Conditional', question.hasTrigger && 'Trigger']
                 .filter(Boolean)
                 .join(' · ')}
             </Typography>
@@ -502,6 +502,24 @@ export function QuestionCard({
                 value={question.requiredMessage ?? ''}
                 onChange={(e) =>
                   updateQuestion(question.id, { requiredMessage: e.target.value || undefined })
+                }
+              />
+            )}
+            {!isLabel && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!question.hasTrigger}
+                    onChange={(e) => updateQuestion(question.id, { hasTrigger: e.target.checked })}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    Trigger immediate callback
+                    <Typography component="span" variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Reports this answer to the host right away, not just when the respondent moves to the next page
+                    </Typography>
+                  </Typography>
                 }
               />
             )}

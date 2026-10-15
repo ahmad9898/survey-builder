@@ -85,6 +85,7 @@ export function buildResponsePayload(
           label: question.label,
           value: null,
           displayValue: 'Acknowledged',
+          ...(question.hasTrigger ? { hasTrigger: true } : {}),
         });
         continue;
       }
@@ -105,6 +106,7 @@ export function buildResponsePayload(
         ...(skipped ? { skipped: true } : {}),
         ...(options ? { options } : {}),
         ...buildDisqualifyFields(question, value),
+        ...(question.hasTrigger ? { hasTrigger: true } : {}),
       });
     }
   }

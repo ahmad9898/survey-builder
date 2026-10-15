@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SurveyRunner, newSurvey } from 'survey-builder-kit'
-import type { Survey, SurveyResponse } from 'survey-builder-kit'
+import type { AnswerEntry, Survey, SurveyResponse } from 'survey-builder-kit'
 
 // Same two-button shape as SurveyBuilderPage, but <SurveyRunner>'s `survey`
 // prop is REQUIRED (unlike <SurveyBuilder>, which treats survey={null} as
@@ -42,13 +42,15 @@ export function SurveyRunnerPage() {
       setImportError(err instanceof Error ? err.message : 'Could not read that file as JSON.')
     }
   }
-
+  const assessmentCallback = (answers: AnswerEntry[], submitted: boolean) => {
+    console.log('assessmentCallback', answers, 'submitted: ' + submitted);
+  };
   // onSubmit is the Runner's equivalent of the Builder's onSave: it fires
   // once, when the respondent reaches the end of the survey -- now with a
   // full SurveyResponse (answers plus visitedPageIds/score/timestamps),
   // not just the bare answers. Nothing is persisted here.
   function handleSubmit(response: SurveyResponse) {
-    console.log('SurveyRunner onSubmit:', response)
+    //console.log('SurveyRunner onSubmit:', response)
   }
 
   if (view === 'runner' && survey) {
@@ -60,7 +62,7 @@ export function SurveyRunnerPage() {
           </button>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0 }}>
-          <SurveyRunner survey={survey} onSubmit={handleSubmit} />
+          <SurveyRunner survey={survey} onSubmit={handleSubmit} onAnswer={assessmentCallback} />
         </div>
       </div>
     )

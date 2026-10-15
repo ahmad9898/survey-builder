@@ -100,19 +100,35 @@ inside a flex column), or it will collapse to its content height.
 | `survey`   | `Survey \| null \| undefined`     | No       | --                                                                                                |
 | `onChange` | `(survey: Survey) => void`       | No       | As the author edits, debounced ~500ms. Not called on every keystroke.                            |
 | `onSave`   | `(survey: Survey) => void`       | No       | Once per click of the header's Save/Publish button, or Ctrl/Cmd+S.                                |
-| `targetElement` | `string`                   | No       | --                                                                                                |
+| `bgColor` | `string`                       | No       | --                                                                                                |
+| `primaryColor` | `string`                    | No       | --                                                                                                |
 
 - `survey={null}` (or `undefined`) starts a new, empty survey.
-- `targetElement` is added to this component's own root element's
-  `className`, nothing more -- not a DOM node or a ref, despite the name.
-  Write a CSS rule scoped to that class in your own stylesheet to theme one
-  mounted instance (e.g. `.acme-blue-theme { ... }`), without touching this
-  library's internals or re-rendering with a different theme object per
-  instance:
+- `bgColor` is added to this component's own root element's `className`,
+  nothing more -- not a DOM node or a ref, despite the name, and not a
+  literal color value either. Write a CSS rule scoped to that class in your
+  own stylesheet to theme one mounted instance (e.g. `.acme-blue-theme {
+  ... }`), without touching this library's internals or re-rendering with a
+  different theme object per instance:
 
   ```tsx
-  <SurveyBuilder survey={survey} targetElement="acme-blue-theme" />
+  <SurveyBuilder survey={survey} bgColor="acme-blue-theme" />
   ```
+- `primaryColor` replaces the library's default primary color (`#4f46e5`)
+  for this one mounted instance -- every `primary.main`/`.dark`/`.light`/
+  `.contrastText` usage throughout the component (buttons, selected-state
+  borders/fills, the flow map's active-node styling, etc.) reads from the
+  theme, so this one value reaches all of them; `dark`/`light`/
+  `contrastText` are derived from it automatically:
+
+  ```tsx
+  <SurveyBuilder survey={survey} primaryColor="#e11d48" />
+  ```
+
+  Unlike `bgColor`, this *does* build a different theme object per instance
+  -- there's no way to override MUI's `sx={{ color: 'primary.main' }}`
+  tokens from plain host CSS the way `bgColor` overrides literal CSS
+  properties, so this prop exists for that case specifically.
 - `survey` is read once, on mount, to seed the editor's internal state, and
   again only if you later pass a *different* survey (a different `id`) --
   it is not a controlled prop the editor re-syncs to on every render. Once
@@ -155,20 +171,67 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | `survey`         | `Survey`                                     | Yes      | --                                                                        |
 | `initialAnswers` | `Record<string, unknown>`                   | No       | --                                                                        |
 | `onChange`       | `(answers: Record<string, unknown>) => void` | No       | As the respondent answers, debounced ~500ms.                            |
+| `onAnswer`       | `(response: SurveyResponse, submitted: boolean) => void` | No | Once per page advance, only `hasTrigger` questions; once more at submit with everything. |
 | `onSubmit`       | `(response: SurveyResponse) => void`         | No       | Once, when the respondent reaches the end of the survey.                |
 | `exitPath`       | `string`                                     | No       | --                                                                        |
-| `targetElement`  | `string`                                     | No       | --                                                                        |
+| `bgColor`        | `string`                                     | No       | --                                                                        |
+| `primaryColor`   | `string`                                     | No       | --                                                                        |
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
   later changes) -- use it to resume a partially-answered survey.
+- `onAnswer` fires once per page advance -- when the respondent moves on to
+  the next page, not on every keystroke/selection within a page (see
+  `onChange` for that) -- with `submitted: false` and `response.answers`
+  scoped to just that page's questions flagged `hasTrigger: true`
+  (`QuestionDef`); a page with none of those doesn't fire `onAnswer` at
+  all. `response.completedAt` is omitted at this point (the survey isn't
+  finished yet).
+
+  At actual completion, it fires once more, differently: `submitted: true`,
+  and `response.answers` is EVERY answer from the whole survey -- every
+  page, `hasTrigger` or not -- the same full set `onSubmit` itself gets
+  (built independently though -- the two calls' `response.id`s don't
+  match each other, same as neither call's `response.id` matches another
+  onAnswer call's from earlier in the same run).
+
+  `response` is a full `SurveyResponse` either way, same shape as
+  `onSubmit`'s own parameter (`id`/`surveyId`/`title`/`type`/
+  `surveyVersion`/`answersFormatVersion`/`answers`/`visitedPageIds`/
+  `score`/`startedAt`/`completedAt`), not a bare `AnswerEntry[]` --
+  `response.answers` is the rich, self-describing shape (`questionId`/
+  `slug`/`label`/`pageId`/`pageTitle`/`type`/`value`/`displayValue`/
+  `hasTrigger`, etc. -- see "Survey / answers JSON shape" below), and
+  `response.score` is a LIVE score recomputed from whatever's been
+  answered so far (when `survey.scoring?.enabled`), not necessarily the
+  final one. `hasTrigger` defaults to false/omitted for every question, is
+  never compiled into the JSONForms schema/UI, and so has no visible effect
+  in `<SurveyRunner>`'s rendered form -- it only changes what `onAnswer`
+  reports mid-survey. Doesn't fire on back-navigation, including jumping
+  back via the review screen's "Edit". Use this over `onChange`/`onSubmit`
+  when you want a lightweight signal (with survey-level context, not just
+  raw answers) per flagged question as the respondent goes, plus the full
+  response at the end, without wiring a separate `onSubmit`:
+
+  ```tsx
+  <SurveyRunner survey={survey} onAnswer={(response, submitted) => track(response, submitted)} />
+  ```
 - `exitPath`, if given, shows an "Exit" link in the header; clicking it does
   a full `window.location` navigation to that path/URL (not client-side
   routing -- this library has no router of its own, and can't depend on
   one). Omit it to hide the link entirely.
-- `targetElement` works exactly like `<SurveyBuilder>`'s own -- added to
-  this component's root element's `className` only, so your own CSS can
-  theme one mounted instance (`.acme-blue-theme { ... }`) without touching
-  the library or re-rendering with a different theme object.
+- `bgColor` works exactly like `<SurveyBuilder>`'s own -- added to this
+  component's root element's `className` only (not a literal color value),
+  so your own CSS can theme one mounted instance (`.acme-blue-theme { ...
+  }`) without touching the library or re-rendering with a different theme
+  object.
+- `primaryColor` works exactly like `<SurveyBuilder>`'s own -- replaces the
+  default `#4f46e5` everywhere `primary.*` is read (the progress rail,
+  selected-option cards/borders, the submit/continue button, etc.), with
+  `dark`/`light`/`contrastText` derived from it automatically:
+
+  ```tsx
+  <SurveyRunner survey={survey} primaryColor="#e11d48" />
+  ```
 - Like `<SurveyBuilder>`, `survey` is validated on mount/swap, with a plain
   error screen on a shape mismatch instead of a crash.
 - `onSubmit`'s `response` is a full `SurveyResponse` -- not just the raw

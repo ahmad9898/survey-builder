@@ -184,7 +184,11 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
   const liveMessage = errorMessage ?? (reviewing ? 'Review your answers' : `Question ${progress.currentStep} of ${progress.totalSteps}`);
 
   return (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+    // No bgcolor here deliberately: RunnerHeader paints its own opaque
+    // background, but the question/review area below doesn't -- so a
+    // host's bgColor background (see SurveyRunner.tsx) shows through there
+    // instead of being hidden under a second, redundant opaque layer.
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ProgressRail percent={(progress.currentStep / Math.max(1, progress.totalSteps)) * 100} />
       <RunnerHeader
         surveyTitle={survey.title}

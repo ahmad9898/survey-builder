@@ -50,6 +50,8 @@ export interface AnswerEntry {
   disqualifying?: boolean;
   /** Snapshot of the disqualifying option's notice (title, and body if any), if `disqualifying` is true. */
   disqualifyMessage?: string;
+  /** Snapshot of the question's own `hasTrigger` flag at submit/answer time. Omitted (not `false`) when the question isn't a trigger question. */
+  hasTrigger?: boolean;
 }
 
 // Bumped whenever the shape of `SurveyResponse.answers` itself (or its

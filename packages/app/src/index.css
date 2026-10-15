@@ -57,8 +57,8 @@
    this, anything sized via height:100% inside either component silently
    collapses to its content's natural height instead of filling the window
    -- normally invisible (same background color either way), but very
-   visible the moment a host colors that area via targetElement, which is
-   how this was actually found. */
+   visible the moment a host colors that area via bgColor, which is how
+   this was actually found. */
 #root.builder-shell,
 #root.player-shell {
   width: 100%;
@@ -120,10 +120,10 @@ code {
   background: var(--code-bg);
 }
 
-/* survey-builder-kit's targetElement -- scoped override for <SurveyBuilder>/
-   <SurveyRunner> instances mounted with targetElement="color-black" (see
+/* survey-builder-kit's bgColor -- scoped override for <SurveyBuilder>/
+   <SurveyRunner> instances mounted with bgColor="color-black" (see
    BuilderPage.tsx/PlayerPage.tsx). Lands on the component's own root
    element, so this only affects that one mounted instance. */
 .color-black {
-  background-color: #000000;
+  background-color: #ffffff;
 }

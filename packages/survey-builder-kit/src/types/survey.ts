@@ -108,6 +108,14 @@ export interface QuestionDef {
   // UI-schema metadata only, consulted by the Builder's options list, the
   // runner, and the flow map, never by schema validation.
   disqualifyingOptions?: Record<string, DisqualifyingNotice>;
+  // Marks this one question as a "trigger" question -- see
+  // SurveyRunnerProps.onAnswer's own comment for what that changes about
+  // when/how it fires. Never compiled into the JSONForms schema/UI schema
+  // (schemaCompiler doesn't read it), so it has no effect on and isn't
+  // visible anywhere in <SurveyRunner>'s rendered form. Defaults to false
+  // (omitted) for every question, including ones saved before this field
+  // existed.
+  hasTrigger?: boolean;
 }
 
 export interface DisqualifyingNotice {

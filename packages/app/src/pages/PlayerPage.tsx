@@ -51,6 +51,14 @@ export function PlayerPage() {
     responseRepository.save(response);
   };
 
+  // Fires once per page advance (hasTrigger questions only, submitted:
+  // false), and once more at actual submission (every answer, submitted:
+  // true) -- unlike handleSubmit above, this isn't persisted anywhere yet,
+  // just logged for now.
+  const assessmentCallback = (response: SurveyResponse, submitted: boolean) => {
+    console.log('assessmentCallback', response, 'submitted: ' + submitted);
+  };
+
   if (!survey) {
     return (
       <Box sx={{ p: 3 }}>
@@ -64,7 +72,14 @@ export function PlayerPage() {
 
   return (
     <Box sx={{ flex: 1, minHeight: 0 }}>
-      <SurveyRunner survey={survey} onSubmit={handleSubmit} exitPath="/" targetElement="color-black" />
+      <SurveyRunner
+        survey={survey}
+        onSubmit={handleSubmit}
+        onAnswer={assessmentCallback}
+        exitPath="/"
+        bgColor="color-black"
+        primaryColor="#e11d48"
+      />
     </Box>
   );
 }

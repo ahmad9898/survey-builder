@@ -1,0 +1,972 @@
+{
+  "id": "survey_5c2ef1b2-c665-4bc6-975c-f72e739fd607",
+  "title": "ED Assessment",
+  "schemaVersion": 1,
+  "version": 1,
+  "createdAt": "2026-10-06T16:58:20.350Z",
+  "updatedAt": "2026-10-14T12:10:05.690Z",
+  "startPageId": "page_cd6ff866-d69b-4de3-af86-f23e1230cb7b",
+  "pages": [
+    {
+      "id": "page_cd6ff866-d69b-4de3-af86-f23e1230cb7b",
+      "title": "Date of Birth",
+      "questions": [
+        {
+          "id": "date1",
+          "type": "date",
+          "label": "Date of Birth",
+          "description": "You must be between 18 and 70 years old to use our ED treatment services.",
+          "required": false,
+          "minYears": 18,
+          "yearsMessage": "Age should be more tha",
+          "slug": "date1",
+          "title": "Date of Birth",
+          "hasTrigger": true
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "date1": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/date1",
+            "label": "Date of Birth",
+            "options": {
+              "description": "You must be between 18 and 70 years old to use our ED treatment services."
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_be78f44d-6b37-45fb-8088-6cb210b20741"
+    },
+    {
+      "id": "page_be78f44d-6b37-45fb-8088-6cb210b20741",
+      "title": "What is your weight and height?",
+      "questions": [
+        {
+          "id": "number1",
+          "type": "number",
+          "label": "Weight",
+          "required": true,
+          "slug": "number1",
+          "title": "Weight"
+        },
+        {
+          "id": "number2",
+          "type": "number",
+          "label": "Height",
+          "required": true,
+          "slug": "number2",
+          "title": "Height"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "number1": {
+            "type": "number"
+          },
+          "number2": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "number1",
+          "number2"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/number1",
+            "label": "Weight"
+          },
+          {
+            "type": "Control",
+            "scope": "#/properties/number2",
+            "label": "Height"
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_a9b71f9e-6cbc-4525-a5c0-c7b2706ed9a8"
+    },
+    {
+      "id": "page_a9b71f9e-6cbc-4525-a5c0-c7b2706ed9a8",
+      "title": "Gender",
+      "questions": [
+        {
+          "id": "singleChoice1",
+          "type": "singleChoice",
+          "label": "What was your sex assigned at birth?",
+          "choices": [
+            "Male",
+            "Female"
+          ],
+          "required": true,
+          "description": "This service is currently only available for individuals assigned male at birth.",
+          "visibilityRule": null,
+          "slug": "singleChoice1",
+          "title": "What was your sex assigned at birth?",
+          "hasTrigger": true
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice1": {
+            "type": "string",
+            "enum": [
+              "Male",
+              "Female"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice1"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice1",
+            "label": "What was your sex assigned at birth?",
+            "options": {
+              "description": "This service is currently only available for individuals assigned male at birth."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_1d5fd268-8b2e-4cc0-8c9f-2551913c631a",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/singleChoice1",
+                "operator": "eq",
+                "value": "Male"
+              }
+            ]
+          },
+          "goToPageId": "page_f737aae0-ad91-4703-90ab-4266c4f801d5"
+        }
+      ],
+      "defaultNextPageId": "page_4c4505eb-fa4a-4ccd-88f2-9d0564e123ef"
+    },
+    {
+      "id": "page_4c4505eb-fa4a-4ccd-88f2-9d0564e123ef",
+      "title": "Female not Allowed",
+      "questions": [
+        {
+          "id": "label1",
+          "type": "label",
+          "label": "Medical Review Required",
+          "description": "This service is currently only available for individuals assigned male at birth.\n\nFor your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer.\n\n",
+          "visibilityRule": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/singleChoice1",
+                "operator": "eq",
+                "value": "Female"
+              }
+            ]
+          },
+          "slug": "label1",
+          "title": "Medical Review Required"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Medical Review Required",
+            "rule": {
+              "effect": "SHOW",
+              "condition": {
+                "type": "AND",
+                "conditions": [
+                  {
+                    "scope": "#/properties/singleChoice1",
+                    "schema": {
+                      "const": "Female"
+                    },
+                    "failWhenUndefined": true
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end",
+      "blocksSubmission": true
+    },
+    {
+      "id": "page_f737aae0-ad91-4703-90ab-4266c4f801d5",
+      "title": "Heart Attack",
+      "questions": [
+        {
+          "id": "singleChoice2",
+          "type": "singleChoice",
+          "label": "Have you had a heart attack or stent in the last 6 months?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "required": true,
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "visibilityRule": null,
+          "slug": "singleChoice2",
+          "title": "Have you had a heart attack or stent in the last 6 months?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice2": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice2"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice2",
+            "label": "Have you had a heart attack or stent in the last 6 months?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_432e1501-d57f-49c2-8161-1e62f1feedb2",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/singleChoice2",
+                "operator": "eq",
+                "value": "No"
+              }
+            ]
+          },
+          "goToPageId": "page_781e9186-1bee-4a5d-8f94-be340f1d55d2"
+        }
+      ],
+      "defaultNextPageId": "page_e0e55588-927d-42e2-97c2-bbba7446b696"
+    },
+    {
+      "id": "page_e0e55588-927d-42e2-97c2-bbba7446b696",
+      "title": "Medical Review Required Heart Attack",
+      "questions": [
+        {
+          "id": "label2",
+          "type": "label",
+          "label": "Medical Review Required",
+          "description": "You've indicated a recent heart attack. For your safety, please consult with your doctor in person.\n\nFor your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer.",
+          "slug": "label2",
+          "title": "Medical Review Required"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Medical Review Required"
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end",
+      "blocksSubmission": true
+    },
+    {
+      "id": "page_781e9186-1bee-4a5d-8f94-be340f1d55d2",
+      "title": "Stroke or mini-stroke",
+      "questions": [
+        {
+          "id": "singleChoice3",
+          "type": "singleChoice",
+          "label": "Have you had a stroke or mini-stroke in the last 6 months?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "required": true,
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "slug": "singleChoice3",
+          "title": "Have you had a stroke or mini-stroke in the last 6 months?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice3": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice3"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice3",
+            "label": "Have you had a stroke or mini-stroke in the last 6 months?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_781906f6-77da-42f9-a475-7421db423b4f",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/singleChoice3",
+                "operator": "eq",
+                "value": "No"
+              }
+            ]
+          },
+          "goToPageId": "page_7481c48e-0b1c-4e6b-a9ce-7c6d632eb104"
+        }
+      ],
+      "defaultNextPageId": "page_d1cc78ef-4156-4c74-b370-aec5836fe017"
+    },
+    {
+      "id": "page_d1cc78ef-4156-4c74-b370-aec5836fe017",
+      "title": "Medical Review Required Stroke",
+      "questions": [
+        {
+          "id": "label3",
+          "type": "label",
+          "label": "Medical Review Required",
+          "description": "You've indicated a recent stroke. For your safety, please consult with your doctor in person.\n\nFor your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer.",
+          "slug": "label3",
+          "title": "Medical Review Required"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Medical Review Required"
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end",
+      "blocksSubmission": true
+    },
+    {
+      "id": "page_7481c48e-0b1c-4e6b-a9ce-7c6d632eb104",
+      "title": "Unstable angina",
+      "questions": [
+        {
+          "id": "singleChoice4",
+          "type": "singleChoice",
+          "label": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "required": false,
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.",
+          "slug": "singleChoice4",
+          "title": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice4": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        }
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice4",
+            "label": "Do you have unstable angina, severe heart failure, or poorly-controlled arrhythmia?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review."
+            }
+          }
+        ]
+      },
+      "branch": [
+        {
+          "id": "branch_7bc31410-f124-46d0-80da-ee6796c61cb9",
+          "when": {
+            "logic": "AND",
+            "conditions": [
+              {
+                "fieldPath": "#/properties/singleChoice4",
+                "operator": "eq",
+                "value": "No"
+              }
+            ]
+          },
+          "goToPageId": "page_977c0e89-1905-472e-b26a-2603af5ebd8b"
+        }
+      ],
+      "defaultNextPageId": "page_e4711d37-e227-4c0d-b71f-8509877755a8"
+    },
+    {
+      "id": "page_e4711d37-e227-4c0d-b71f-8509877755a8",
+      "title": "Medical Review Required angina",
+      "questions": [
+        {
+          "id": "label4",
+          "type": "label",
+          "label": "Medical Review Required",
+          "description": "You've indicated heart failure or arrhythmia. For your safety, please consult with your doctor in person.\n\nFor your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer.",
+          "slug": "label4",
+          "title": "Medical Review Required"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {}
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Label",
+            "text": "Medical Review Required"
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end",
+      "blocksSubmission": true
+    },
+    {
+      "id": "page_977c0e89-1905-472e-b26a-2603af5ebd8b",
+      "title": "Experience chest pain",
+      "questions": [
+        {
+          "id": "singleChoice5",
+          "type": "singleChoice",
+          "label": "Do you experience chest pain or breathlessness with mild activity?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "required": true,
+          "visibilityRule": null,
+          "disqualifyingOptions": {
+            "Yes": {
+              "title": "Medical Review Required",
+              "body": "You've indicated chest pain during physical activity. For your safety, please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice5",
+          "title": "Do you experience chest pain or breathlessness with mild activity?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice5": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice5"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice5",
+            "label": "Do you experience chest pain or breathlessness with mild activity?",
+            "options": {
+              "disqualifyingOptions": {
+                "Yes": {
+                  "title": "Medical Review Required",
+                  "body": "You've indicated chest pain during physical activity. For your safety, please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_132061e4-59db-4914-a8d9-92aad80a9fbe"
+    },
+    {
+      "id": "page_132061e4-59db-4914-a8d9-92aad80a9fbe",
+      "title": "Nitrate medicines",
+      "questions": [
+        {
+          "id": "singleChoice6",
+          "type": "singleChoice",
+          "label": "Are you taking nitrate medicines (NitrolingualÂ®, Nitro-DurÂ®, ImdurÂ®)?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.\n",
+          "required": true,
+          "disqualifyingOptions": {
+            "Yes": {
+              "title": "Medical Review Required",
+              "body": "You've indicated use of nitrate medications. ED medications can cause dangerous interactions with nitrates. Please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice6",
+          "title": "Are you taking nitrate medicines (NitrolingualÂ®, Nitro-DurÂ®, ImdurÂ®)?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice6": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice6"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice6",
+            "label": "Are you taking nitrate medicines (NitrolingualÂ®, Nitro-DurÂ®, ImdurÂ®)?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review.\n",
+              "disqualifyingOptions": {
+                "Yes": {
+                  "title": "Medical Review Required",
+                  "body": "You've indicated use of nitrate medications. ED medications can cause dangerous interactions with nitrates. Please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_2b475f96-eb0d-4f74-a08d-9d64b94d451c"
+    },
+    {
+      "id": "page_2b475f96-eb0d-4f74-a08d-9d64b94d451c",
+      "title": "Painful Lump",
+      "questions": [
+        {
+          "id": "singleChoice7",
+          "type": "singleChoice",
+          "label": "Do you have a painful lump, curve or bend in the penis?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "description": "Any disqualifying answer ends the assessment and advises in-person GP review.\n",
+          "required": true,
+          "disqualifyingOptions": {
+            "Yes": {
+              "title": "Medical Review Required",
+              "body": "You've indicated painful erection. For your safety, please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice7",
+          "title": "Do you have a painful lump, curve or bend in the penis?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice7": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice7"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice7",
+            "label": "Do you have a painful lump, curve or bend in the penis?",
+            "options": {
+              "description": "Any disqualifying answer ends the assessment and advises in-person GP review.\n",
+              "disqualifyingOptions": {
+                "Yes": {
+                  "title": "Medical Review Required",
+                  "body": "You've indicated painful erection. For your safety, please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_bd8fc484-c796-4f4f-b149-6dda8ab51de9"
+    },
+    {
+      "id": "page_bd8fc484-c796-4f4f-b149-6dda8ab51de9",
+      "title": "Walk briskly (4-6 km/h)",
+      "questions": [
+        {
+          "id": "singleChoice8",
+          "type": "singleChoice",
+          "label": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "disqualifyingOptions": {
+            "No": {
+              "title": "Medical Review Required",
+              "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+          "required": true,
+          "slug": "singleChoice8",
+          "title": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice8": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice8"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice8",
+            "label": "Can you walk briskly (4-6 km/h) for 10 minutes without chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+              "disqualifyingOptions": {
+                "No": {
+                  "title": "Medical Review Required",
+                  "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_882b1907-54c8-47e7-8305-27a6f3d2b6bd"
+    },
+    {
+      "id": "page_882b1907-54c8-47e7-8305-27a6f3d2b6bd",
+      "title": "Climb 2 flights",
+      "questions": [
+        {
+          "id": "singleChoice9",
+          "type": "singleChoice",
+          "label": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+          "required": true,
+          "disqualifyingOptions": {
+            "No": {
+              "title": "Medical Review Required",
+              "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice9",
+          "title": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice9": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice9"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice9",
+            "label": "Can you climb 2 flights of stairs without stopping, chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+              "disqualifyingOptions": {
+                "No": {
+                  "title": "Medical Review Required",
+                  "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_a4d7bf3a-7344-406c-b8b0-f11b89e90351"
+    },
+    {
+      "id": "page_a4d7bf3a-7344-406c-b8b0-f11b89e90351",
+      "title": "Can you carry groceries",
+      "questions": [
+        {
+          "id": "singleChoice10",
+          "type": "singleChoice",
+          "label": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+          "required": true,
+          "disqualifyingOptions": {
+            "No": {
+              "title": "Medical Review Required",
+              "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice10",
+          "title": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice10": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice10"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice10",
+            "label": "Can you carry groceries upstairs without chest pain, shortness of breath, dizziness, or fatigue?",
+            "options": {
+              "description": "Physical activity readiness is important for assessing cardiac risk with ED medications.\n",
+              "disqualifyingOptions": {
+                "No": {
+                  "title": "Medical Review Required",
+                  "body": "Based on your physical activity capacity, we recommend consulting with your doctor in person before using ED medications.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "page_03914909-9c5e-4d9b-b8ab-4133063c87ba"
+    },
+    {
+      "id": "page_03914909-9c5e-4d9b-b8ab-4133063c87ba",
+      "title": "Nitrate medication",
+      "questions": [
+        {
+          "id": "singleChoice11",
+          "type": "singleChoice",
+          "label": "Are you currently using any nitrate medication for heart or chest pain?",
+          "choices": [
+            "Yes",
+            "No"
+          ],
+          "description": "DO NOT use ED medications if you are currently taking any nitrate medicines. They can cause a dangerous drop in blood pressure when combined.\n",
+          "required": true,
+          "disqualifyingOptions": {
+            "Yes": {
+              "title": "Medical Review Required",
+              "body": "You've indicated use of nitrate medications. ED medications can cause dangerous interactions with nitrates. Please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+            }
+          },
+          "slug": "singleChoice11",
+          "title": "Are you currently using any nitrate medication for heart or chest pain?"
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "singleChoice11": {
+            "type": "string",
+            "enum": [
+              "Yes",
+              "No"
+            ]
+          }
+        },
+        "required": [
+          "singleChoice11"
+        ]
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/singleChoice11",
+            "label": "Are you currently using any nitrate medication for heart or chest pain?",
+            "options": {
+              "description": "DO NOT use ED medications if you are currently taking any nitrate medicines. They can cause a dangerous drop in blood pressure when combined.\n",
+              "disqualifyingOptions": {
+                "Yes": {
+                  "title": "Medical Review Required",
+                  "body": "You've indicated use of nitrate medications. ED medications can cause dangerous interactions with nitrates. Please consult with your doctor in person.  For your safety, we recommend consulting with a healthcare provider in person. You cannot proceed with this online assessment with your current answer."
+                }
+              }
+            }
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end"
+    },
+    {
+      "id": "page_489d471f-71a3-47c6-a558-0db28b6dde3c",
+      "title": "Page 18",
+      "questions": [
+        {
+          "id": "ahmad-khalil",
+          "slug": "ahmad-khalil",
+          "title": "ahmad khalil",
+          "type": "shortText",
+          "label": "Short text questiondsd "
+        }
+      ],
+      "schema": {
+        "type": "object",
+        "properties": {
+          "ahmad-khalil": {
+            "type": "string"
+          }
+        }
+      },
+      "uischema": {
+        "type": "VerticalLayout",
+        "elements": [
+          {
+            "type": "Control",
+            "scope": "#/properties/ahmad-khalil",
+            "label": "Short text questiondsd "
+          }
+        ]
+      },
+      "branch": [],
+      "defaultNextPageId": "end"
+    }
+  ],
+  "scoring": {
+    "enabled": false
+  },
+  "scoringMap": {},
+  "type": "sadasda"
+}

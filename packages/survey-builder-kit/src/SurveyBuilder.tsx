@@ -1,11 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Box from '@mui/material/Box';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
 import type { Survey } from './types/survey';
-import { theme } from './theme';
+import { createLibraryTheme } from './theme';
 import { BuilderStoreProvider } from './builder/store/BuilderStoreProvider';
 import { useBuilderStore, newSurvey } from './builder/store/builderStore';
 import { useFlowLayoutStore } from './builder/store/flowLayoutStore';
@@ -28,7 +28,19 @@ export interface SurveyBuilderProps {
    * without touching this library's internals or re-rendering with a
    * different theme object per instance. Omit it for no extra class.
    */
-  targetElement?: string;
+  bgColor?: string;
+  /**
+   * Overrides the library's default primary color (`#4f46e5`) for this one
+   * mounted instance -- every `primary.main`/`.dark`/`.light`/`.contrastText`
+   * usage throughout the component (buttons, selected states, the flow
+   * map's active-node styling, etc.) reads from the theme, so this one
+   * value reaches all of them. `dark`/`light`/`contrastText` are derived
+   * from it automatically. Unlike `bgColor`, this DOES re-render under a
+   * different theme object -- there's no way to override MUI's `sx={{
+   * color: 'primary.main' }}` tokens from plain host CSS the way `bgColor`
+   * overrides literal CSS properties.
+   */
+  primaryColor?: string;
 }
 
 // One Emotion cache per component, keyed distinctly from SurveyRunner's --
@@ -47,19 +59,20 @@ export function SurveyBuilder(props: SurveyBuilderProps) {
   // crashing somewhere deep inside the branching/scoring/flow-map code that
   // assumes well-formed data.
   const validation = props.survey ? validateSurvey(props.survey) : { valid: true as const };
+  const theme = useMemo(() => createLibraryTheme(props.primaryColor), [props.primaryColor]);
 
   return (
     <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {/* The one DOM wrapper between the (non-DOM) providers above and
-            whichever branch renders below -- targetElement's whole
-            mechanism is this className, so it has to land on every render
-            path (error state included), not just the happy path. height:
-            '100%' here, not on this Box's child, is what lets the existing
-            "renders at height: 100% of whatever you mount it in" contract
-            keep working with an extra DOM layer now in between. */}
-        <Box className={props.targetElement} sx={{ height: '100%' }}>
+            whichever branch renders below -- bgColor's whole mechanism is
+            this className, so it has to land on every render path (error
+            state included), not just the happy path. height: '100%' here,
+            not on this Box's child, is what lets the existing "renders at
+            height: 100% of whatever you mount it in" contract keep working
+            with an extra DOM layer now in between. */}
+        <Box className={props.bgColor} sx={{ height: '100%' }}>
           {!validation.valid ? (
             <SurveyValidationError errors={validation.errors} />
           ) : (
