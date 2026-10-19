@@ -27,7 +27,7 @@ export { isConditionGroup, CURRENT_SCHEMA_VERSION } from './types/survey';
 // AnswerEntry's own comment for why, and CURRENT_ANSWERS_FORMAT_VERSION /
 // validateSurveyResponse for telling a response in this shape apart from
 // one saved before it existed.
-export type { ScoreResult, ScoreByCategory, SurveyResponse, AnswerEntry, AnswerOption } from './types/response';
+export type { ScoreResult, ScoreByCategory, SurveyResponse, AnswerEntry, AnswerOption, PredefinedAnswer } from './types/response';
 export { CURRENT_ANSWERS_FORMAT_VERSION } from './types/response';
 
 // Pure helper so a host can compute the same score <SurveyRunner> shows

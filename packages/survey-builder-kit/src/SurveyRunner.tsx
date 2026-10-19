@@ -7,7 +7,7 @@ import createCache from '@emotion/cache';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Survey } from './types/survey';
-import type { AnswerEntry, SurveyResponse } from './types/response';
+import type { AnswerEntry, PredefinedAnswer, SurveyResponse } from './types/response';
 import { CURRENT_ANSWERS_FORMAT_VERSION } from './types/response';
 import { createLibraryTheme } from './theme';
 import { PlayerStoreProvider } from './runtime/store/PlayerStoreProvider';
@@ -23,8 +23,35 @@ import { SurveyValidationError } from './components/SurveyValidationError';
 export interface SurveyRunnerProps {
   /** The survey to present to a respondent. */
   survey: Survey;
-  /** Resume a partially-answered survey. Only read on mount (and if `survey.id` later changes). */
+  /**
+   * Resume a partially-answered survey. Only read on mount (and if
+   * `survey.id` later changes). Each question still renders normally,
+   * pre-filled with its value -- unlike `predefinedAnswers`, nothing is
+   * ever hidden on a MIXED page. But if every question on a page already
+   * has a value from `initialAnswers`, that whole page is skipped outright
+   * (the respondent never lands on it) -- there would be nothing left to
+   * show or answer there anyway. (This can't be triggered by the
+   * respondent finishing a page themselves -- only questions that already
+   * had a value here BEFORE the respondent started count.)
+   */
   initialAnswers?: Record<string, unknown>;
+  /**
+   * Answers already known before the respondent starts -- e.g. from a
+   * prior step in a larger flow, or profile data already on file. Only
+   * read on mount (and again if `survey.id` changes), same as
+   * `initialAnswers` -- but unlike `initialAnswers`, each of these
+   * questions is also hidden from the respondent entirely, not just
+   * pre-filled, even on a page with other, non-predefined questions still
+   * showing. A page where every question is predefined (or otherwise
+   * already fully covered by `initialAnswers`) is skipped outright.
+   *
+   * The value still counts as a real answer for validation/branching/
+   * scoring, and shows up normally in `onSubmit`/`onAnswer` -- this only
+   * changes what's rendered, not what's considered answered. If both
+   * `initialAnswers` and `predefinedAnswers` set the same question,
+   * `predefinedAnswers` wins (and that question is hidden).
+   */
+  predefinedAnswers?: PredefinedAnswer[];
   /** Fires (debounced ~500ms) as the respondent answers, for autosave-style host integration. */
   onChange?: (answers: Record<string, unknown>) => void;
   /**
@@ -141,13 +168,23 @@ export function SurveyRunner(props: SurveyRunnerProps) {
   );
 }
 
-function SurveyRunnerInner({ survey, initialAnswers, onChange, onAnswer, onSubmit, exitPath }: SurveyRunnerProps) {
+function SurveyRunnerInner({
+  survey,
+  initialAnswers,
+  predefinedAnswers,
+  onChange,
+  onAnswer,
+  onSubmit,
+  exitPath,
+}: SurveyRunnerProps) {
   const playerSurvey = usePlayerStore((s) => s.survey);
   const answers = usePlayerStore((s) => s.answers);
   const finished = usePlayerStore((s) => s.finished);
   const visitedPageStack = usePlayerStore((s) => s.visitedPageStack);
   const loadSurvey = usePlayerStore((s) => s.loadSurvey);
   const setAnswers = usePlayerStore((s) => s.setAnswers);
+  const setPredefinedQuestionIds = usePlayerStore((s) => s.setPredefinedQuestionIds);
+  const setInitialAnswerQuestionIds = usePlayerStore((s) => s.setInitialAnswerQuestionIds);
 
   // Timestamps this specific run (not the survey itself) -- reset alongside
   // the store's own state whenever a genuinely different survey is loaded,
@@ -196,7 +233,21 @@ function SurveyRunnerInner({ survey, initialAnswers, onChange, onAnswer, onSubmi
     lastLoadedSurveyId.current = survey.id;
     startedAtRef.current = new Date().toISOString();
     loadSurvey(survey);
-    if (initialAnswers) setAnswers(initialAnswers);
+    // predefinedAnswers wins over initialAnswers on a shared id -- merged
+    // in that order so its values are the ones actually present in
+    // `answers` for whichever ids overlap.
+    if (initialAnswers || predefinedAnswers) {
+      setAnswers({
+        ...(initialAnswers ?? {}),
+        ...Object.fromEntries((predefinedAnswers ?? []).map((a) => [a.id, a.value])),
+      });
+    }
+    if (predefinedAnswers?.length) {
+      setPredefinedQuestionIds(new Set(predefinedAnswers.map((a) => a.id)));
+    }
+    if (initialAnswers) {
+      setInitialAnswerQuestionIds(new Set(Object.keys(initialAnswers)));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [survey.id]);
 

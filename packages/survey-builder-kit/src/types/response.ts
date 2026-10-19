@@ -12,6 +12,16 @@ export interface ScoreResult {
   passed?: boolean;
 }
 
+// One host-supplied answer <SurveyRunner survey={...} predefinedAnswers={...}>
+// already knows before the respondent starts -- see SurveyRunnerProps.
+// predefinedAnswers's own comment for the full behavior. `id` matches a
+// QuestionDef's `id` (same key AnswerEntry.questionId uses); an id with no
+// matching question in the survey is silently ignored.
+export interface PredefinedAnswer {
+  id: string;
+  value: unknown;
+}
+
 // One choice/multi-select option as it stood at submit time -- the FULL
 // list from the question's `choices`, not just whichever were picked, so a
 // later reader (e.g. the Answers Viewer) can show what the respondent

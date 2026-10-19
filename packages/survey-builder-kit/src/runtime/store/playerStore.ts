@@ -9,12 +9,35 @@ export interface PlayerState {
   survey: Survey | null;
   currentPageId: string | null;
   answers: Record<string, unknown>;
+  // Question ids the HOST supplied a predefinedAnswers entry for -- never
+  // populated by anything the respondent does. RunnerShell's isVisible
+  // treats a question in this set as hidden, same mechanism as a
+  // visibilityRule but host-driven rather than survey-authored (see
+  // SurveyRunnerProps.predefinedAnswers's own comment). Separate from
+  // `answers` itself (which DOES get the predefined value merged in, same
+  // as initialAnswers) so a respondent filling in a question mid-page
+  // doesn't accidentally hide it the instant it gets a value.
+  predefinedQuestionIds: Set<string>;
+  // Question ids the HOST supplied via initialAnswers (a static, mount-time
+  // snapshot of its keys -- never updated as `answers` changes afterward,
+  // whether from the respondent typing or from setAnswers elsewhere). Used
+  // only for RunnerShell's "skip this whole page" check: unlike
+  // predefinedQuestionIds, these questions stay VISIBLE/editable on a mixed
+  // page (initialAnswers is a pre-fill, not a hide) -- but if every visible
+  // question on a page is in this set, there's nothing left to show OR
+  // answer there, so the page is skipped outright, same as a page with zero
+  // visible questions already was. Being static is what makes this safe:
+  // it can never flip true mid-page just because the respondent finished
+  // filling in the last field themselves.
+  initialAnswerQuestionIds: Set<string>;
   visitedPageStack: string[];
   finished: boolean;
   score: ScoreResult | null;
 
   loadSurvey: (survey: Survey) => void;
   setAnswers: (data: Record<string, unknown>) => void;
+  setPredefinedQuestionIds: (ids: Set<string>) => void;
+  setInitialAnswerQuestionIds: (ids: Set<string>) => void;
   goNext: () => void;
   goBack: () => void;
   reset: () => void;
@@ -34,6 +57,8 @@ export function createPlayerStore() {
     survey: null,
     currentPageId: null,
     answers: {},
+    predefinedQuestionIds: new Set(),
+    initialAnswerQuestionIds: new Set(),
     visitedPageStack: [],
     finished: false,
     score: null,
@@ -43,12 +68,16 @@ export function createPlayerStore() {
         survey,
         currentPageId: survey.startPageId,
         answers: {},
+        predefinedQuestionIds: new Set(),
+        initialAnswerQuestionIds: new Set(),
         visitedPageStack: [survey.startPageId],
         finished: false,
         score: null,
       }),
 
     setAnswers: (data) => set({ answers: data }),
+    setPredefinedQuestionIds: (ids) => set({ predefinedQuestionIds: ids }),
+    setInitialAnswerQuestionIds: (ids) => set({ initialAnswerQuestionIds: ids }),
 
     goNext: () => {
       const { survey, currentPageId, answers, visitedPageStack } = get();
@@ -85,6 +114,8 @@ export function createPlayerStore() {
       set({
         currentPageId: survey.startPageId,
         answers: {},
+        predefinedQuestionIds: new Set(),
+        initialAnswerQuestionIds: new Set(),
         visitedPageStack: [survey.startPageId],
         finished: false,
         score: null,

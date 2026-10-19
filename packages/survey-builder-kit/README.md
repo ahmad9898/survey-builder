@@ -170,6 +170,7 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | ---------------- | -------------------------------------------- | -------- | ------------------------------------------------------------------------ |
 | `survey`         | `Survey`                                     | Yes      | --                                                                        |
 | `initialAnswers` | `Record<string, unknown>`                   | No       | --                                                                        |
+| `predefinedAnswers` | `PredefinedAnswer[]`                      | No       | --                                                                        |
 | `onChange`       | `(answers: Record<string, unknown>) => void` | No       | As the respondent answers, debounced ~500ms.                            |
 | `onAnswer`       | `(response: SurveyResponse, submitted: boolean) => void` | No | Once per page advance, only `hasTrigger` questions; once more at submit with everything. |
 | `onSubmit`       | `(response: SurveyResponse) => void`         | No       | Once, when the respondent reaches the end of the survey.                |
@@ -178,7 +179,41 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | `primaryColor`   | `string`                                     | No       | --                                                                        |
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
-  later changes) -- use it to resume a partially-answered survey.
+  later changes) -- use it to resume a partially-answered survey. Each
+  question still renders normally, pre-filled -- unlike `predefinedAnswers`,
+  nothing is hidden on a page with other, unanswered questions still on it.
+  But if EVERY question on a page already has a value from
+  `initialAnswers`, that whole page is skipped outright (there'd be
+  nothing left to show or answer there). This can't trigger just because
+  the respondent finishes filling in a page themselves -- only a question
+  that already had a value here before they started counts.
+- `predefinedAnswers` is for answers you already know before the
+  respondent starts -- e.g. from a prior step in a larger flow, or profile
+  data already on file -- keyed by `id` (a question's `id`, same as
+  `QuestionDef.id`/`AnswerEntry.questionId`):
+
+  ```tsx
+  <SurveyRunner
+    survey={survey}
+    predefinedAnswers={[
+      { id: 'first-name', value: 'Ahmad' },
+      { id: 'last-name', value: 'Khalil' },
+    ]}
+  />
+  ```
+
+  Only read once, on mount (and again if `survey.id` changes), same as
+  `initialAnswers` -- but unlike `initialAnswers`, each of these questions
+  is also hidden from the respondent entirely, not just pre-filled, even on
+  a page with other, non-predefined questions still showing. A page where
+  every question is predefined (or otherwise already fully covered by
+  `initialAnswers`) is skipped outright. The value still counts as a real
+  answer for validation/branching/scoring, and shows up normally in
+  `onSubmit`/`onAnswer` -- this only changes what's rendered, not what's
+  considered answered. If both `initialAnswers` and `predefinedAnswers` set
+  the same question, `predefinedAnswers` wins (and that question is
+  hidden). An
+  `id` with no matching question in the survey is silently ignored.
 - `onAnswer` fires once per page advance -- when the respondent moves on to
   the next page, not on every keystroke/selection within a page (see
   `onChange` for that) -- with `submitted: false` and `response.answers`

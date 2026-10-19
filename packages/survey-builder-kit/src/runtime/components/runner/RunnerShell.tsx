@@ -13,12 +13,22 @@ import { MultiQuestionStage } from './MultiQuestionStage';
 import { ReviewScreen, type ReviewItem } from './ReviewScreen';
 import { validateQuestion, canAttemptAdvance, getDisqualifyingNotices } from './questionValidation';
 
-function isVisible(question: QuestionDef, answers: Record<string, unknown>): boolean {
+// `predefinedQuestionIds` hides a question the same way a visibilityRule
+// does, but it's host-driven (SurveyRunnerProps.predefinedAnswers) rather
+// than survey-authored -- a question the host already supplied an answer
+// for is never shown to the respondent, regardless of what its own
+// visibilityRule says.
+function isVisible(question: QuestionDef, answers: Record<string, unknown>, predefinedQuestionIds: Set<string>): boolean {
+  if (predefinedQuestionIds.has(question.id)) return false;
   return !question.visibilityRule || evaluateConditionGroup(question.visibilityRule, answers);
 }
 
-function visibleQuestionsOf(questions: QuestionDef[], answers: Record<string, unknown>): QuestionDef[] {
-  return questions.filter((q) => isVisible(q, answers));
+function visibleQuestionsOf(
+  questions: QuestionDef[],
+  answers: Record<string, unknown>,
+  predefinedQuestionIds: Set<string>,
+): QuestionDef[] {
+  return questions.filter((q) => isVisible(q, answers, predefinedQuestionIds));
 }
 
 // The runner's atomic step is a PAGE: a page with exactly one visible
@@ -30,6 +40,8 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
   const survey = usePlayerStore((s) => s.survey);
   const currentPageId = usePlayerStore((s) => s.currentPageId);
   const answers = usePlayerStore((s) => s.answers);
+  const predefinedQuestionIds = usePlayerStore((s) => s.predefinedQuestionIds);
+  const initialAnswerQuestionIds = usePlayerStore((s) => s.initialAnswerQuestionIds);
   const visitedPageStack = usePlayerStore((s) => s.visitedPageStack);
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const goNext = usePlayerStore((s) => s.goNext);
@@ -45,10 +57,16 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
   const currentPage = survey.pages.find((p) => p.id === currentPageId);
   if (!currentPage) return null;
 
-  const visibleQuestions = visibleQuestionsOf(currentPage.questions, answers);
-  if (visibleQuestions.length === 0) {
-    // Nothing to show on this page (every question hidden by a visibility
-    // rule) -- move straight on rather than showing an empty screen.
+  const visibleQuestions = visibleQuestionsOf(currentPage.questions, answers, predefinedQuestionIds);
+  // Covers two cases at once (an empty array satisfies .every() vacuously):
+  // nothing to show at all (every question hidden by a visibility rule or
+  // predefinedAnswers), OR everything still visible here was already
+  // supplied via initialAnswers before the respondent ever saw this page
+  // (initialAnswerQuestionIds is a static, mount-time snapshot -- see its
+  // own comment in playerStore -- so this can't be accidentally triggered
+  // by the respondent finishing a page themselves). Either way, move
+  // straight on rather than showing an empty or nothing-left-to-do screen.
+  if (visibleQuestions.every((q) => initialAnswerQuestionIds.has(q.id))) {
     goNext();
     return null;
   }
@@ -145,7 +163,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
     for (const pageId of state.visitedPageStack) {
       const page = state.survey.pages.find((p) => p.id === pageId);
       if (!page) continue;
-      if (visibleQuestionsOf(page.questions, state.answers).some((q) => q.id === questionId)) {
+      if (visibleQuestionsOf(page.questions, state.answers, state.predefinedQuestionIds).some((q) => q.id === questionId)) {
         targetPageId = pageId;
         break;
       }
@@ -177,7 +195,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
   const reviewItems: ReviewItem[] = reviewing
     ? visitedPageStack
         .flatMap((pageId) => survey.pages.find((p) => p.id === pageId)?.questions ?? [])
-        .filter((q) => q.type !== 'label' && isVisible(q, answers))
+        .filter((q) => q.type !== 'label' && isVisible(q, answers, predefinedQuestionIds))
         .map((question) => ({ question, answerText: formatAnswerDisplay(question, answers[question.id]) }))
     : [];
 
