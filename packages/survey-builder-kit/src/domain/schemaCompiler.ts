@@ -43,6 +43,8 @@ function compileQuestionSchema(q: QuestionDef): JsonSchema {
       return { type: 'boolean' };
     case 'date':
       return { type: 'string', format: 'date' };
+    case 'turnstile':
+      return { type: 'string' };
     default:
       return { type: 'string' };
   }
@@ -51,6 +53,7 @@ function compileQuestionSchema(q: QuestionDef): JsonSchema {
 const RENDERER_HINT: Partial<Record<QuestionType, string>> = {
   rating: 'rating',
   nps: 'nps',
+  turnstile: 'turnstile',
 };
 
 function compileQuestionUiElement(q: QuestionDef): UISchemaElement {
@@ -105,7 +108,11 @@ export function compilePage(page: Pick<SurveyPage, 'questions'>): {
   for (const q of page.questions) {
     if (q.type === 'label') continue; // display-only, carries no answer data
     properties[q.id] = compileQuestionSchema(q);
-    if (q.required) required.push(q.id);
+    // turnstile is unconditionally required -- there's no meaningful
+    // "optional CAPTCHA", and the Builder doesn't even expose a Required
+    // toggle for it (see QuestionCard.tsx), so `q.required` itself can't be
+    // relied on to ever be true here.
+    if (q.required || q.type === 'turnstile') required.push(q.id);
   }
 
   return {

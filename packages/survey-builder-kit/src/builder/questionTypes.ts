@@ -17,6 +17,7 @@ export const QUESTION_TYPES: QuestionTypeMeta[] = [
   { type: 'boolean', paletteLabel: 'Yes / No', defaultLabel: 'Yes/no question' },
   { type: 'date', paletteLabel: 'Date', defaultLabel: 'Date question' },
   { type: 'label', paletteLabel: 'Label', defaultLabel: 'Display text' },
+  { type: 'turnstile', paletteLabel: 'Turnstile', defaultLabel: 'Verification' },
 ];
 
 export function questionTypeMeta(type: QuestionType): QuestionTypeMeta {

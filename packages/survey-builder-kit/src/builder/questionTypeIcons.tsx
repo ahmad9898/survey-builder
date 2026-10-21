@@ -8,6 +8,7 @@ import NumbersIcon from '@mui/icons-material/Numbers';
 import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import TitleIcon from '@mui/icons-material/Title';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import type { QuestionType } from '../types/survey';
 
 export const QUESTION_TYPE_ICONS: Record<QuestionType, typeof ShortTextIcon> = {
@@ -21,4 +22,5 @@ export const QUESTION_TYPE_ICONS: Record<QuestionType, typeof ShortTextIcon> = {
   boolean: ToggleOnIcon,
   date: CalendarTodayIcon,
   label: TitleIcon,
+  turnstile: ShieldOutlinedIcon,
 };

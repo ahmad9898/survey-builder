@@ -53,7 +53,18 @@ export type QuestionType =
   | 'number'
   | 'boolean'
   | 'date'
-  | 'label';
+  | 'label'
+  // Cloudflare Turnstile challenge -- carries no author-set choices/min/max
+  // like the other types; its only "answer" is the token Turnstile hands
+  // back once the respondent passes the challenge. Always implicitly
+  // required (there's no meaningful "optional CAPTCHA"), never scoreable
+  // or branchable (the token is an opaque, single-use, ephemeral string --
+  // see questionValidation.ts/schemaCompiler.ts/answerFormatting.ts for
+  // where it's excluded from treatment the other types get). This library
+  // only captures the token -- verifying it against Cloudflare's siteverify
+  // endpoint needs the SECRET key, which must never reach the browser, so
+  // that's entirely the host's own backend's job.
+  | 'turnstile';
 
 export interface QuestionDef {
   id: string; // property key, unique survey-wide

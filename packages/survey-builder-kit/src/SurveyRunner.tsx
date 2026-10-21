@@ -20,6 +20,10 @@ import { buildResponsePayload } from './domain/responsePayload';
 import { newId } from './lib/id';
 import { SurveyValidationError } from './components/SurveyValidationError';
 
+// See SurveyRunnerProps.initialAnswers's own comment -- a host passes the
+// Turnstile site key under this exact key, not as a real question's answer.
+const TURNSTILE_SITE_KEY_RESERVED_ID = '__turnstileSiteKey';
+
 export interface SurveyRunnerProps {
   /** The survey to present to a respondent. */
   survey: Survey;
@@ -33,6 +37,19 @@ export interface SurveyRunnerProps {
    * show or answer there anyway. (This can't be triggered by the
    * respondent finishing a page themselves -- only questions that already
    * had a value here BEFORE the respondent started count.)
+   *
+   * One reserved key: `__turnstileSiteKey`, if present, is pulled out and
+   * used as the Cloudflare Turnstile site key for any `type: 'turnstile'`
+   * question in this survey -- it's never treated as a real question's
+   * answer (there's no question with that id), so it never shows up in
+   * `onSubmit`/`onAnswer`:
+   *
+   * ```tsx
+   * <SurveyRunner
+   *   survey={survey}
+   *   initialAnswers={{ __turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY }}
+   * />
+   * ```
    */
   initialAnswers?: Record<string, unknown>;
   /**
@@ -185,6 +202,7 @@ function SurveyRunnerInner({
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const setPredefinedQuestionIds = usePlayerStore((s) => s.setPredefinedQuestionIds);
   const setInitialAnswerQuestionIds = usePlayerStore((s) => s.setInitialAnswerQuestionIds);
+  const setTurnstileSiteKey = usePlayerStore((s) => s.setTurnstileSiteKey);
 
   // Timestamps this specific run (not the survey itself) -- reset alongside
   // the store's own state whenever a genuinely different survey is loaded,
@@ -233,20 +251,32 @@ function SurveyRunnerInner({
     lastLoadedSurveyId.current = survey.id;
     startedAtRef.current = new Date().toISOString();
     loadSurvey(survey);
+
+    // __turnstileSiteKey is a reserved config key, not a real question's
+    // answer -- pulled out here, before anything else below ever sees
+    // `initialAnswers`, so it can't end up in `answers`/
+    // `initialAnswerQuestionIds` (there's no question with that id on any
+    // page anyway, so it would've been harmless either way, but keeping
+    // `answers` free of it is still the more honest state to carry around).
+    const { [TURNSTILE_SITE_KEY_RESERVED_ID]: turnstileSiteKey, ...realInitialAnswers } = initialAnswers ?? {};
+    if (initialAnswers && TURNSTILE_SITE_KEY_RESERVED_ID in initialAnswers) {
+      setTurnstileSiteKey(typeof turnstileSiteKey === 'string' ? turnstileSiteKey : null);
+    }
+
     // predefinedAnswers wins over initialAnswers on a shared id -- merged
     // in that order so its values are the ones actually present in
     // `answers` for whichever ids overlap.
     if (initialAnswers || predefinedAnswers) {
       setAnswers({
-        ...(initialAnswers ?? {}),
+        ...realInitialAnswers,
         ...Object.fromEntries((predefinedAnswers ?? []).map((a) => [a.id, a.value])),
       });
     }
     if (predefinedAnswers?.length) {
       setPredefinedQuestionIds(new Set(predefinedAnswers.map((a) => a.id)));
     }
-    if (initialAnswers) {
-      setInitialAnswerQuestionIds(new Set(Object.keys(initialAnswers)));
+    if (Object.keys(realInitialAnswers).length > 0) {
+      setInitialAnswerQuestionIds(new Set(Object.keys(realInitialAnswers)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [survey.id]);

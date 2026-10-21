@@ -4,3 +4,4 @@ import { and, isControl, optionIs, rankWith } from '@jsonforms/core';
 // take over whenever the compiled UI Schema carries the matching `options.renderer` hint.
 export const ratingTester = rankWith(10, and(isControl, optionIs('renderer', 'rating')));
 export const npsTester = rankWith(10, and(isControl, optionIs('renderer', 'nps')));
+export const turnstileTester = rankWith(10, and(isControl, optionIs('renderer', 'turnstile')));

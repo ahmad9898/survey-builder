@@ -10,7 +10,7 @@ export function availableFieldsForPage(survey: Survey, pageId: string): FieldOpt
   const fields: FieldOption[] = [];
   for (let i = 0; i <= pageIndex; i++) {
     for (const q of survey.pages[i].questions) {
-      if (q.type === 'label') continue;
+      if (q.type === 'label' || q.type === 'turnstile') continue;
       fields.push({
         scope: `#/properties/${q.id}`,
         label: q.label,

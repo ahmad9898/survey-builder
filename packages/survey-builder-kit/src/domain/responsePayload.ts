@@ -91,7 +91,12 @@ export function buildResponsePayload(
       }
 
       const value = rawAnswers[question.id];
-      const skipped = !question.required && (value === undefined || value === null || value === '');
+      // turnstile is unconditionally required (see schemaCompiler.ts's own
+      // comment) even though `question.required` itself is never actually
+      // set true for it -- so it's never legitimately "skipped" either.
+      const skipped =
+        !(question.required || question.type === 'turnstile') &&
+        (value === undefined || value === null || value === '');
       const options = buildOptions(question, value);
 
       entries.push({

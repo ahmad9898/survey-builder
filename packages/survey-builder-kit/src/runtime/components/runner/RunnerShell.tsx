@@ -189,6 +189,10 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
     !isMultiQuestion &&
     !singleQuestion.required &&
     singleQuestion.type !== 'label' &&
+    // Never skippable regardless of its own `required` flag (which is
+    // never actually set true for it anyway) -- same reasoning as
+    // canAttemptAdvance's own turnstile case.
+    singleQuestion.type !== 'turnstile' &&
     !pageBlocksSubmission &&
     !hasDisqualifyingSelection;
 

@@ -225,7 +225,7 @@ function availableFieldsFor(survey: Survey, questionId: string): FieldOption[] {
   const fields: FieldOption[] = [];
   for (let i = 0; i <= pageIndex; i++) {
     for (const q of survey.pages[i].questions) {
-      if (q.id !== questionId && q.type !== 'label')
+      if (q.id !== questionId && q.type !== 'label' && q.type !== 'turnstile')
         fields.push({
           scope: `#/properties/${q.id}`,
           label: q.label,
@@ -336,6 +336,7 @@ export function QuestionCard({
   const hasChoices = question.type === 'singleChoice' || question.type === 'multipleChoice';
   const hasMinMax = question.type === 'rating' || question.type === 'number' || question.type === 'nps';
   const isLabel = question.type === 'label';
+  const isTurnstile = question.type === 'turnstile';
   const hasText = question.type === 'shortText' || question.type === 'longText';
   const isDate = question.type === 'date';
   const hasDisqualifyingOption = Object.keys(question.disqualifyingOptions ?? {}).length > 0;
@@ -482,7 +483,13 @@ export function QuestionCard({
               value={question.description ?? ''}
               onChange={(e) => updateQuestion(question.id, { description: e.target.value })}
             />
-            {!isLabel && (
+            {isTurnstile && (
+              <Typography variant="caption" color="text.secondary">
+                Always required -- a respondent can't continue past this question without completing the
+                verification.
+              </Typography>
+            )}
+            {!isLabel && !isTurnstile && (
               <FormControlLabel
                 control={
                   <Checkbox
@@ -493,7 +500,7 @@ export function QuestionCard({
                 label="Required"
               />
             )}
-            {!isLabel && question.required && (
+            {!isLabel && !isTurnstile && question.required && (
               <TextField
                 label="Custom message when empty (optional)"
                 size="small"

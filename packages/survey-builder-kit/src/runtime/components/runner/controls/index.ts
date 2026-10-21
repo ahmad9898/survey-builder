@@ -11,6 +11,7 @@ import { MultiChoiceControl } from './MultiChoiceControl';
 import { BooleanControl } from './BooleanControl';
 import { RatingScaleControl } from './RatingScaleControl';
 import { LabelInfoControl } from './LabelInfoControl';
+import { TurnstileControl } from './TurnstileControl';
 import { UnsupportedControl } from './UnsupportedControl';
 
 // Stacked cards stop scaling well past this many options -- see
@@ -43,6 +44,8 @@ export function controlForQuestion(question: QuestionDef): ComponentType<Questio
       return RatingScaleControl;
     case 'label':
       return LabelInfoControl;
+    case 'turnstile':
+      return TurnstileControl;
     default:
       return UnsupportedControl;
   }

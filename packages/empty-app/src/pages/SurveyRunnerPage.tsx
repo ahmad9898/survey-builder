@@ -7,10 +7,17 @@ import type { Survey, SurveyResponse } from 'survey-builder-kit'
 // editable) rather than hiding them; see <SurveyRunner>'s own
 // predefinedAnswers prop instead if they should be hidden from the
 // respondent entirely.
+//
+// __turnstileSiteKey is the one reserved exception -- not a real question's
+// answer, pulled out by <SurveyRunner> and used as the Turnstile site key
+// for any type: 'turnstile' question. This is Cloudflare's published
+// "always passes" TEST key (works on any domain, no real site needed) --
+// swap in a real site key for production.
 const initialAnswers: Record<string, unknown> = {
   'first-name': 'ahmad',
   'last-name': 'ahmad',
   email: 'ahmad@gmail.com',
+  __turnstileSiteKey: '1x00000000000000000000AA',
 }
 
 // Same two-button shape as SurveyBuilderPage, but <SurveyRunner>'s `survey`

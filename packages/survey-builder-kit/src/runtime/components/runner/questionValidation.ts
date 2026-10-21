@@ -64,5 +64,12 @@ export function canAttemptAdvance(question: QuestionDef, value: unknown): boolea
   if (question.type === 'multipleChoice' && question.required) {
     return Array.isArray(value) && value.length > 0;
   }
+  // Unlike every other type, disabled outright (not just error-on-click)
+  // until there's a token -- there's no meaningful "optional CAPTCHA", and
+  // a disabled Continue is a clearer signal than letting the click through
+  // to an inline validation error.
+  if (question.type === 'turnstile') {
+    return typeof value === 'string' && value.length > 0;
+  }
   return true;
 }

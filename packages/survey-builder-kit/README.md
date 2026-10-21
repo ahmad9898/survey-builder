@@ -187,6 +187,19 @@ function TakeSurvey({ survey }: { survey: Survey }) {
   nothing left to show or answer there). This can't trigger just because
   the respondent finishes filling in a page themselves -- only a question
   that already had a value here before they started counts.
+
+  One reserved key: `__turnstileSiteKey`, if present, is pulled out and used
+  as the Cloudflare Turnstile site key for any `type: 'turnstile'` question
+  in the survey (see "Question types" below) -- it's never treated as a
+  real question's answer (there's no question with that id), so it never
+  shows up in `onSubmit`/`onAnswer`:
+
+  ```tsx
+  <SurveyRunner
+    survey={survey}
+    initialAnswers={{ __turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY }}
+  />
+  ```
 - `predefinedAnswers` is for answers you already know before the
   respondent starts -- e.g. from a prior step in a larger flow, or profile
   data already on file -- keyed by `id` (a question's `id`, same as
@@ -309,6 +322,34 @@ A few things worth calling out that aren't obvious from the types alone:
   derived output, not something to hand-author.
 - Answers (`Record<string, unknown>`) are a flat object keyed by each
   question's `id`, regardless of which page the question lives on.
+- `QuestionType` includes `'turnstile'` -- a Cloudflare Turnstile challenge.
+  Its only "answer" is the token Turnstile hands back once the respondent
+  passes; this library captures that token and that's it -- **verifying it
+  against Cloudflare's `siteverify` endpoint needs the SECRET key, which
+  must never reach the browser, so that's entirely your own backend's job,
+  not something this library does for you.** A few things specific to this
+  type:
+  - Always implicitly required -- there's no meaningful "optional CAPTCHA",
+    so the Builder doesn't even expose a Required toggle for it, and the
+    respondent can't advance past it regardless of what `required` says.
+  - Never scoreable, never selectable as a branching/visibility-rule field
+    (the token is an opaque, single-use, ephemeral string -- nothing
+    meaningful to score or branch on).
+  - `AnswerEntry.value` is the real token; `AnswerEntry.displayValue` is
+    `'Verified'` instead, since showing a ~2000-character opaque string in
+    a human-facing review list or export would be useless.
+  - Needs a site key to actually render -- see `initialAnswers`'
+    `__turnstileSiteKey` convention above. Without one, the question
+    renders a clear "Turnstile site key not configured" message instead of
+    a broken/blank widget.
+  - Renders real Cloudflare UI, so it needs network access to
+    `challenges.cloudflare.com` -- this is the one place in the library
+    that loads an external script at runtime (lazily, only if the survey
+    actually has a turnstile question). For local testing, Cloudflare
+    publishes dedicated test site keys that work on any domain:
+    `1x00000000000000000000AA` (always passes), `2x00000000000000000000AB`
+    (always blocks), `3x00000000000000000000FF` (forces an interactive
+    challenge).
 
 ## Autosave / IndexedDB
 

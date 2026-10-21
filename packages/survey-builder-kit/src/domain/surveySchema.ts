@@ -65,6 +65,7 @@ const questionDefSchema = {
         'boolean',
         'date',
         'label',
+        'turnstile',
       ],
     },
     label: { type: 'string' },
