@@ -1,22 +1,17 @@
-import { useEffect, useRef } from 'react';
 import { Box, Typography } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
 import type { QuestionControlProps } from './types';
-
-const AUTO_ADVANCE_DELAY = 180;
 
 // Its own compact pattern rather than a 2-option version of the "few
 // options" card list: two large side-by-side buttons, equal visual weight.
 // Common enough in a health-screening survey to deserve a snappier shape of
 // its own.
-export function BooleanControl({ value, onChange, onAdvance, autoFocus }: QuestionControlProps) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-
+export function BooleanControl({ value, onChange, autoFocus }: QuestionControlProps) {
+  // Selecting only records the value -- it never advances on its own; the
+  // respondent still has to click Continue/Submit themselves. See
+  // QuestionStage/MultiQuestionStage for that button.
   const select = (next: boolean) => {
     onChange(next);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(onAdvance, AUTO_ADVANCE_DELAY);
   };
 
   const buttonSx = (selected: boolean) => ({

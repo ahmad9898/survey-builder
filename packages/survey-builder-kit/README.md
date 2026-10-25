@@ -328,6 +328,26 @@ A few things worth calling out that aren't obvious from the types alone:
   derived output, not something to hand-author.
 - Answers (`Record<string, unknown>`) are a flat object keyed by each
   question's `id`, regardless of which page the question lives on.
+- `BranchRule.action` is `'goToPage'` (the default -- also what a rule saved
+  before this field existed means) or `'block'`. The Builder's Branching
+  panel shows this as a "Go to page" / "Block submission" toggle per rule:
+  picking "Block submission" disables Continue/Submit on the CURRENT page
+  while the rule's condition matches -- no navigation at all, the
+  respondent just stays there (same treatment a `blocksSubmission` page or
+  a disqualifying choice option already gets) until they change their
+  answer and the condition stops matching. A `'block'` rule's `goToPageId`
+  is unused (the Builder leaves it as `'end'`, a harmless placeholder) --
+  `resolveNextPage` skips `'block'` rules entirely when picking a
+  navigation destination:
+
+  ```json
+  {
+    "id": "r1",
+    "action": "block",
+    "when": { "logic": "AND", "conditions": [{ "fieldPath": "#/properties/smokes", "operator": "eq", "value": true }] },
+    "goToPageId": "end"
+  }
+  ```
 - `QuestionDef.descriptionColor` is a CSS color applied to `description`'s
   own text wherever `<SurveyRunner>` renders it -- the Builder's settings
   panel shows a color picker right under the Description/Body text field

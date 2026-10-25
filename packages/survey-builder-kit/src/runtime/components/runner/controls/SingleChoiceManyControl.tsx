@@ -13,12 +13,11 @@ export function SingleChoiceManyControl({ question, value, onChange, onAdvance, 
     <Autocomplete
       options={choices}
       value={typeof value === 'string' ? value : null}
+      // Selecting only records the value -- it never advances on its own;
+      // see renderInput's onKeyDown below for the one explicit way to also
+      // advance from here (pressing Enter), same convention text fields use.
       onChange={(_, newValue) => {
         onChange(newValue ?? undefined);
-        // A disqualifying option is the one explicit exception to auto-
-        // advance -- the respondent needs to see the warning banner
-        // QuestionStage renders for this choice, not get swept past it.
-        if (newValue && !isDisqualifying(newValue)) onAdvance();
       }}
       autoHighlight
       renderOption={(props, option) => {

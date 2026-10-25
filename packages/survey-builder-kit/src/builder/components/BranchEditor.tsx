@@ -9,6 +9,8 @@ import {
   MenuItem,
   Select,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -73,6 +75,7 @@ function RuleCard({
   onDelete: () => void;
 }) {
   const [editing, setEditing] = useState(rule.when.conditions.length === 0);
+  const isBlock = rule.action === 'block';
   const destinationLabel =
     rule.goToPageId === 'end' ? 'End of survey' : otherPages.find((p) => p.id === rule.goToPageId)?.title ?? 'Unknown page';
 
@@ -121,10 +124,14 @@ function RuleCard({
             <Chip
               size="small"
               label="THEN"
-              sx={{ bgcolor: 'primary.light', color: 'primary.dark', fontWeight: 700, fontSize: 11 }}
+              sx={
+                isBlock
+                  ? { bgcolor: 'error.light', color: 'error.dark', fontWeight: 700, fontSize: 11 }
+                  : { bgcolor: 'primary.light', color: 'primary.dark', fontWeight: 700, fontSize: 11 }
+              }
             />
-            <Typography variant="body2" color="primary.dark" fontWeight={600} noWrap>
-              Jump to {destinationLabel}
+            <Typography variant="body2" color={isBlock ? 'error.dark' : 'primary.dark'} fontWeight={600} noWrap>
+              {isBlock ? 'Block submission' : `Jump to ${destinationLabel}`}
             </Typography>
           </Stack>
         </Stack>
@@ -151,17 +158,46 @@ function RuleCard({
           />
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="caption" color="text.secondary">
-              Go to
+              Then
             </Typography>
-            <Select size="small" value={rule.goToPageId} onChange={(e) => onChange({ goToPageId: e.target.value })}>
-              <MenuItem value="end">End of survey</MenuItem>
-              {otherPages.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.title}
-                </MenuItem>
-              ))}
-            </Select>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={isBlock ? 'block' : 'goToPage'}
+              onChange={(_, next) => {
+                if (!next) return;
+                if (next === 'block') onChange({ action: 'block', goToPageId: 'end' });
+                else onChange({ action: 'goToPage', goToPageId: otherPages[0]?.id ?? 'end' });
+              }}
+            >
+              <ToggleButton value="goToPage" sx={{ fontSize: 12.5, py: 0.25 }}>
+                Go to page
+              </ToggleButton>
+              <ToggleButton value="block" sx={{ fontSize: 12.5, py: 0.25 }}>
+                Block submission
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Stack>
+          {isBlock ? (
+            <Typography variant="caption" color="text.secondary">
+              Disables Continue/Submit on this page while this condition matches -- the respondent stays here
+              (no navigation) until it no longer does.
+            </Typography>
+          ) : (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="caption" color="text.secondary">
+                Go to
+              </Typography>
+              <Select size="small" value={rule.goToPageId} onChange={(e) => onChange({ goToPageId: e.target.value })}>
+                <MenuItem value="end">End of survey</MenuItem>
+                {otherPages.map((p) => (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.title}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Stack>
+          )}
         </Stack>
       )}
     </Box>

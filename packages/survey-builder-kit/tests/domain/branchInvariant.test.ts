@@ -65,6 +65,13 @@ describe('collapseSingleEdge', () => {
     expect(result.defaultNextPageId).toBe('end');
     expect(result.branch).toEqual([]);
   });
+
+  it("leaves a lone 'block' rule untouched even with no default -- collapsing would silently erase the block (its goToPageId is just a placeholder, not a real destination to promote)", () => {
+    const p = page({
+      branch: [{ id: 'r1', action: 'block', when: { logic: 'AND', conditions: [] }, goToPageId: 'end' }],
+    });
+    expect(collapseSingleEdge(p)).toEqual(p);
+  });
 });
 
 describe('pageHasNoFallbackRisk', () => {

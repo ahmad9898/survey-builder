@@ -7,11 +7,13 @@ export interface QuestionControlProps {
   question: QuestionDef;
   value: unknown;
   onChange: (value: unknown) => void;
-  // Called by controls whose own interaction model auto-advances (a few-
-  // options pick, Yes/No, a rating tap) shortly after a selection. Controls
-  // that don't auto-advance (long text, multi-select, many-options search)
-  // simply never call it -- QuestionStage's own Continue button is the only
-  // way forward for those.
+  // No control calls this on a bare selection/click anymore -- the
+  // respondent always has to explicitly advance themselves, via
+  // QuestionStage's own Continue/Submit button. A few text-entry-style
+  // controls (short text, number, date, the many-options search) also call
+  // it from an Enter keypress, the same way a plain <form> submits on
+  // Enter -- that's still an explicit action, just via keyboard instead of
+  // a click.
   onAdvance: () => void;
   autoFocus?: boolean;
 }

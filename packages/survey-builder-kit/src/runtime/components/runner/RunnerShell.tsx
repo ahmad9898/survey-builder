@@ -1,7 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Box } from '@mui/material';
 import { usePlayerStore, usePlayerStoreApi } from '../../store/playerStore';
-import { resolveNextPage } from '../../../domain/branchingEngine';
+import { resolveNextPage, isPageBlockedByRule } from '../../../domain/branchingEngine';
 import { evaluateConditionGroup } from '../../../domain/conditionEvaluator';
 import { estimateProgress } from '../../../domain/flowLayout';
 import { formatAnswerDisplay } from '../../../domain/answerFormatting';
@@ -75,10 +75,13 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
 
   const progress = estimateProgress(survey, visitedPageStack);
   const isFinalPage = resolveNextPage(currentPage, answers) === 'end';
-  // A page marked "blocks submission" (a disqualification/referral notice)
-  // is a hard stop -- there's no Continue/Submit past it, not even a
-  // Review/Submit screen.
-  const pageBlocksSubmission = !!currentPage.blocksSubmission;
+  // A hard stop -- no Continue/Submit past it, not even a Review/Submit
+  // screen -- from either of two sources: a page marked "blocks submission"
+  // outright (a disqualification/referral notice), or a 'block'-action
+  // branch rule on this page currently matching the answers so far (see
+  // isPageBlockedByRule's own comment). Both are treated identically by
+  // everything below.
+  const submissionBlocked = !!currentPage.blocksSubmission || isPageBlockedByRule(currentPage, answers);
 
   const advancePastCurrentPage = () => {
     const next = resolveNextPage(currentPage, answers);
@@ -91,7 +94,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
   };
 
   const handleAdvance = () => {
-    if (pageBlocksSubmission) return;
+    if (submissionBlocked) return;
     if (isMultiQuestion) {
       const newErrors: Record<string, string> = {};
       for (const q of visibleQuestions) {
@@ -119,27 +122,12 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
     advancePastCurrentPage();
   };
 
-  // A few single-question controls (Boolean, SingleChoiceFew, RatingScale)
-  // call their `onAdvance` prop from inside a short setTimeout so the
-  // selected state is visible first. That timeout captures whatever specific
-  // `handleAdvance` function instance was current AT CLICK TIME -- but
-  // `onChange` for that same click only lands in `answers` on the NEXT
-  // render, after which this whole component re-creates `handleAdvance` with
-  // the updated closure. Without this indirection the delayed call would
-  // validate against the answers as of BEFORE the click (e.g. a boolean
-  // `false` read back as "missing"). Routing every advance through a stable
-  // ref fixes that: the ref is updated on every render, so whichever
-  // instance's timeout fires always calls the LATEST handleAdvance.
-  const handleAdvanceRef = useRef(handleAdvance);
-  handleAdvanceRef.current = handleAdvance;
-  const stableAdvance = useCallback(() => handleAdvanceRef.current(), []);
-
   const handleSkip = () => {
     // canSkip (below) already hides the Skip button once there's a
     // disqualifying selection -- this mirrors that check defensively, same
     // reasoning as handleAdvance's own canAttemptAdvance guard, so Skip can
     // never become a back door around a disqualifying answer.
-    if (pageBlocksSubmission || hasDisqualifyingSelection) return;
+    if (submissionBlocked || hasDisqualifyingSelection) return;
     setErrorMessage(undefined);
     advancePastCurrentPage();
   };
@@ -193,7 +181,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
     // never actually set true for it anyway) -- same reasoning as
     // canAttemptAdvance's own turnstile case.
     singleQuestion.type !== 'turnstile' &&
-    !pageBlocksSubmission &&
+    !submissionBlocked &&
     !hasDisqualifyingSelection;
 
   const reviewItems: ReviewItem[] = reviewing
@@ -235,10 +223,10 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
             pageNumber={progress.currentStep}
             answers={answers}
             onChangeQuestion={(id, value) => setAnswers({ ...answers, [id]: value })}
-            onAdvance={stableAdvance}
+            onAdvance={handleAdvance}
             onBack={handleBack}
             canGoBack={canGoBack}
-            canAttemptAdvance={!pageBlocksSubmission && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))}
+            canAttemptAdvance={!submissionBlocked && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))}
             isFinalPage={isFinalPage}
             errors={fieldErrors}
             direction={direction}
@@ -250,12 +238,12 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
             categoryLabel={currentPage.title}
             value={answers[singleQuestion.id]}
             onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
-            onAdvance={stableAdvance}
+            onAdvance={handleAdvance}
             onBack={handleBack}
             onSkip={handleSkip}
             canGoBack={canGoBack}
             canSkip={canSkip}
-            canAttemptAdvance={!pageBlocksSubmission && canAttemptAdvance(singleQuestion, answers[singleQuestion.id])}
+            canAttemptAdvance={!submissionBlocked && canAttemptAdvance(singleQuestion, answers[singleQuestion.id])}
             isFinalQuestion={isFinalPage}
             error={errorMessage}
             direction={direction}

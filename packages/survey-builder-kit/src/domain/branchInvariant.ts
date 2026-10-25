@@ -15,6 +15,12 @@ export function collapseSingleEdge(page: SurveyPage): SurveyPage {
   const hasDefault = page.defaultNextPageId !== 'end';
   if (hasDefault || page.branch.length !== 1) return page;
   const [onlyRule] = page.branch;
+  // A 'block' rule's goToPageId is just a harmless 'end' placeholder, never
+  // an actual destination (see BranchRule.action's own comment) -- collapsing
+  // it here would promote that placeholder to the page's real default,
+  // silently erasing the block (the page would then let EVERYONE through
+  // unconditionally instead of gating on the rule's condition).
+  if (onlyRule.action === 'block') return page;
   return { ...page, defaultNextPageId: onlyRule.goToPageId, branch: [] };
 }
 

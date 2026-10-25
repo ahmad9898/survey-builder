@@ -1,27 +1,21 @@
-import { useEffect, useRef } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import type { QuestionControlProps } from './types';
-
-const AUTO_ADVANCE_DELAY = 180;
 
 // Shared by `rating` and `nps` -- both are "integer with a declared min/max"
 // in the compiled schema, just with different default ranges (1-5 vs 0-10),
 // so they get one pill-row component rather than two near-identical ones.
 // QuestionDef has no endpoint-label field (e.g. "Not at all"/"Extremely"),
 // so this always falls back to showing the bare min/max numbers underneath.
-export function RatingScaleControl({ question, value, onChange, onAdvance, autoFocus }: QuestionControlProps) {
+export function RatingScaleControl({ question, value, onChange, autoFocus }: QuestionControlProps) {
   const isNps = question.type === 'nps';
   const min = question.min ?? (isNps ? 0 : 1);
   const max = question.max ?? (isNps ? 10 : 5);
   const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
-
+  // Selecting only records the value -- it never advances on its own; the
+  // respondent still has to click Continue/Submit themselves.
   const select = (n: number) => {
     onChange(n);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(onAdvance, AUTO_ADVANCE_DELAY);
   };
 
   return (

@@ -31,6 +31,16 @@ export function isConditionGroup(
 export interface BranchRule {
   id: string;
   when: ConditionGroup;
+  // 'goToPage' (the default -- also what a rule saved before this field
+  // existed means) -- navigates to `goToPageId` when `when` matches.
+  // 'block' -- `goToPageId` is ignored for navigation (the Builder keeps it
+  // as 'end', a harmless placeholder never actually used); instead this
+  // disables Continue/Submit on the CURRENT page while `when` matches, the
+  // same treatment a blocksSubmission page or a disqualifying choice option
+  // already gets, with no navigation at all. See branchingEngine.ts's
+  // resolveNextPage (skips 'block' rules when picking a destination) and
+  // isPageBlockedByRule (the actual gate).
+  action?: 'goToPage' | 'block';
   goToPageId: string | 'end';
 }
 

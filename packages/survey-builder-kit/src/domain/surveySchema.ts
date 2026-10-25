@@ -40,6 +40,7 @@ const branchRuleSchema = {
   properties: {
     id: { type: 'string' },
     when: { $ref: '#/definitions/conditionGroup' },
+    action: { enum: ['goToPage', 'block'] },
     goToPageId: { type: 'string' },
   },
 } as const;
