@@ -9,9 +9,11 @@ import { createLibraryTheme } from './theme';
 import { BuilderStoreProvider } from './builder/store/BuilderStoreProvider';
 import { useBuilderStore, newSurvey } from './builder/store/builderStore';
 import { useFlowLayoutStore } from './builder/store/flowLayoutStore';
+import { useSnackbarStore } from './builder/store/snackbarStore';
 import { useDraftAutosave } from './builder/useDraftAutosave';
 import { BuilderLayout } from './builder/components/BuilderLayout';
 import { validateSurvey, normalizeSurvey } from './domain/surveySchema';
+import { findMissingMandatoryFields } from './builder/surveyReadiness';
 import { SurveyValidationError } from './components/SurveyValidationError';
 
 export interface SurveyBuilderProps {
@@ -139,7 +141,22 @@ function SurveyBuilderInner({ survey: surveyProp, onChange, onSave }: SurveyBuil
   // done anything with onSave's payload -- see useDraftAutosave's comment.
   const saveStatus = useDraftAutosave(survey);
 
-  const handleSave = () => onSave?.(survey);
+  const showError = useSnackbarStore((s) => s.showError);
+
+  // Publish refuses to fire -- and onSave is never called -- while any
+  // field the Builder itself marks mandatory (required indicator + inline
+  // error) is still empty; see findMissingMandatoryFields for the full
+  // list. The author sees exactly why via the same toast other rejected
+  // actions use (e.g. FlowMapView's "needs at least one page"), not a
+  // silent no-op.
+  const handleSave = () => {
+    const issues = findMissingMandatoryFields(survey);
+    if (issues.length > 0) {
+      showError(issues.length === 1 ? issues[0] : `${issues[0]} (+${issues.length - 1} more)`);
+      return;
+    }
+    onSave?.(survey);
+  };
 
   return <BuilderLayout saveStatus={saveStatus} onSave={handleSave} />;
 }

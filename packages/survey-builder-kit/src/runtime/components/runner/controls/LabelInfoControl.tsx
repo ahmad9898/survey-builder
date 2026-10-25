@@ -42,7 +42,7 @@ export function LabelInfoControl({ question }: QuestionControlProps) {
           {question.label}
         </Typography>
         {question.description && (
-          <Typography variant="body1" sx={{ color: tokens.text, mt: 0.5 }}>
+          <Typography variant="body1" sx={{ color: question.descriptionColor || tokens.text, mt: 0.5 }}>
             {question.description}
           </Typography>
         )}

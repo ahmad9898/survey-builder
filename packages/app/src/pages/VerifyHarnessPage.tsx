@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Box, Divider, Stack, Typography } from '@mui/material';
-import { SurveyBuilder, SurveyRunner } from 'survey-builder-kit';
+import { SurveyBuilder, renderAssessment } from 'survey-builder-kit';
 import { competitorSwitchSurvey } from '../fixtures/sampleSurveys';
 import { exportJson } from '../lib/fileIO';
 
@@ -44,11 +44,11 @@ export function VerifyHarnessPage() {
             SurveyRunner
           </Typography>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <SurveyRunner
-              survey={runnerSurvey}
-              onChange={(answers) => exportJson(`runner-onChange-${Date.now()}.json`, answers)}
-              onSubmit={(response) => exportJson(`runner-onSubmit-${Date.now()}.json`, response)}
-            />
+            {renderAssessment({
+              survey: runnerSurvey,
+              onChange: (answers) => exportJson(`runner-onChange-${Date.now()}.json`, answers),
+              onSubmit: (response) => exportJson(`runner-onSubmit-${Date.now()}.json`, response),
+            })}
           </Box>
         </Box>
       </Stack>

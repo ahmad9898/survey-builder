@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { SurveyRunner, newSurvey } from 'survey-builder-kit'
+import { renderAssessment, newSurvey } from 'survey-builder-kit'
 import type { Survey, SurveyResponse } from 'survey-builder-kit'
 
 // Keyed by questionId -- pre-fills these fields (still shown, still
@@ -8,16 +8,13 @@ import type { Survey, SurveyResponse } from 'survey-builder-kit'
 // predefinedAnswers prop instead if they should be hidden from the
 // respondent entirely.
 //
-// __turnstileSiteKey is the one reserved exception -- not a real question's
-// answer, pulled out by <SurveyRunner> and used as the Turnstile site key
-// for any type: 'turnstile' question. This is Cloudflare's published
-// "always passes" TEST key (works on any domain, no real site needed) --
-// swap in a real site key for production.
+// A turnstile question's site key is set on the question definition itself
+// (QuestionDef.turnstileSiteKey, via the Builder's settings panel) now, not
+// here -- there's no reserved key in initialAnswers for it anymore.
 const initialAnswers: Record<string, unknown> = {
   'first-name': 'ahmad',
   'last-name': 'ahmad',
   email: 'ahmad@gmail.com',
-  __turnstileSiteKey: '1x00000000000000000000AA',
 }
 
 // Same two-button shape as SurveyBuilderPage, but <SurveyRunner>'s `survey`
@@ -79,12 +76,12 @@ export function SurveyRunnerPage() {
           </button>
         </div>
         <div style={{ flex: '1 1 auto', minHeight: 0 }}>
-          <SurveyRunner
-            survey={survey}
-            onSubmit={handleSubmit}
-            onAnswer={assessmentCallback}
-            initialAnswers={initialAnswers}
-          />
+          {renderAssessment({
+            survey,
+            onSubmit: handleSubmit,
+            onAnswer: assessmentCallback,
+            initialAnswers,
+          })}
         </div>
       </div>
     )

@@ -1,6 +1,6 @@
 // The two public components -- see each file's own doc comment for details.
 export { SurveyBuilder, type SurveyBuilderProps, newSurvey } from './SurveyBuilder';
-export { SurveyRunner, type SurveyRunnerProps } from './SurveyRunner';
+export { SurveyRunner, renderAssessment, type SurveyRunnerProps } from './SurveyRunner';
 
 // Survey JSON shape -- what a host passes into <SurveyBuilder survey={...}>/
 // <SurveyRunner survey={...}> and gets back out of onChange/onSave.

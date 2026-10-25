@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useLocation, Link as RouterLink } from 'react-router-dom';
 import { Box, Typography, Link } from '@mui/material';
-import { SurveyRunner } from 'survey-builder-kit';
+import { renderAssessment } from 'survey-builder-kit';
 import type { Survey, SurveyResponse } from 'survey-builder-kit';
 import { sampleSurveys } from '../fixtures/sampleSurveys';
 import { surveyRepository } from '../storage/surveyRepository';
@@ -42,7 +42,7 @@ export function PlayerPage() {
     };
   }, [surveyId, surveyFromNavState]);
 
-  // <SurveyRunner>'s onSubmit now hands back a full SurveyResponse (id,
+  // renderAssessment's onSubmit now hands back a full SurveyResponse (id,
   // visitedPageIds, score, timestamps included) -- nothing left to
   // re-derive here, just persist it as-is.
   const handleSubmit = (response: SurveyResponse) => {
@@ -72,14 +72,14 @@ export function PlayerPage() {
 
   return (
     <Box sx={{ flex: 1, minHeight: 0 }}>
-      <SurveyRunner
-        survey={survey}
-        onSubmit={handleSubmit}
-        onAnswer={assessmentCallback}
-        exitPath="/"
-        bgColor="color-black"
-        primaryColor="#e11d48"
-      />
+      {renderAssessment({
+        survey,
+        onSubmit: handleSubmit,
+        onAnswer: assessmentCallback,
+        exitPath: '/',
+        bgColor: 'color-black',
+        primaryColor: '#e11d48',
+      })}
     </Box>
   );
 }

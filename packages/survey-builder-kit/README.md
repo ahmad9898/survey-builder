@@ -99,7 +99,7 @@ inside a flex column), or it will collapse to its content height.
 | ---------- | -------------------------------- | -------- | ------------------------------------------------------------------------------------------------ |
 | `survey`   | `Survey \| null \| undefined`     | No       | --                                                                                                |
 | `onChange` | `(survey: Survey) => void`       | No       | As the author edits, debounced ~500ms. Not called on every keystroke.                            |
-| `onSave`   | `(survey: Survey) => void`       | No       | Once per click of the header's Save/Publish button, or Ctrl/Cmd+S.                                |
+| `onSave`   | `(survey: Survey) => void`       | No       | Once per click of the header's Save/Publish button, or Ctrl/Cmd+S -- but only if every mandatory field is filled in (see below).                                |
 | `bgColor` | `string`                       | No       | --                                                                                                |
 | `primaryColor` | `string`                    | No       | --                                                                                                |
 
@@ -137,6 +137,15 @@ inside a flex column), or it will collapse to its content height.
 - The editor validates `survey` on mount (and again on a swap) and renders a
   plain error screen instead of crashing if it doesn't match the expected
   shape -- see "Survey JSON shape" below.
+- Publish refuses to fire -- `onSave` is never called -- while any field the
+  Builder itself marks mandatory (shown with a required marker and inline
+  error) is still empty: survey Name, survey Type, a turnstile question's
+  Turnstile SiteKey, and a disqualifying option's notice title. The author
+  sees why via a toast naming the first missing field (`"Verification"
+  (Page 1): Turnstile SiteKey is required.`), not a silent no-op. This
+  applies to both the Publish button and the Ctrl/Cmd+S shortcut; `onChange`
+  (autosave) and "Export JSON" are unaffected -- only the formal
+  publish-to-host action is gated.
 
 `newSurvey()` is also exported, in case you want a valid empty `Survey` to
 seed your own state with ahead of time:
@@ -170,63 +179,54 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | ---------------- | -------------------------------------------- | -------- | ------------------------------------------------------------------------ |
 | `survey`         | `Survey`                                     | Yes      | --                                                                        |
 | `initialAnswers` | `Record<string, unknown>`                   | No       | --                                                                        |
-| `predefinedAnswers` | `PredefinedAnswer[]`                      | No       | --                                                                        |
 | `onChange`       | `(answers: Record<string, unknown>) => void` | No       | As the respondent answers, debounced ~500ms.                            |
 | `onAnswer`       | `(response: SurveyResponse, submitted: boolean) => void` | No | Once per page advance, only `hasTrigger` questions; once more at submit with everything. |
 | `onSubmit`       | `(response: SurveyResponse) => void`         | No       | Once, when the respondent reaches the end of the survey.                |
 | `exitPath`       | `string`                                     | No       | --                                                                        |
 | `bgColor`        | `string`                                     | No       | --                                                                        |
 | `primaryColor`   | `string`                                     | No       | --                                                                        |
+| `serviceSku`     | `string`                                     | No       | --                                                                        |
+
+`renderAssessment(props)` is also exported -- an element-factory wrapper
+around `<SurveyRunner>` taking the exact same props, for call sites that
+assemble the props somewhere other than JSX itself (e.g. a plain function)
+and just need the resulting element back to render:
+
+```tsx
+import { renderAssessment } from 'survey-builder-kit';
+import type { Survey, SurveyResponse } from 'survey-builder-kit';
+
+function TakeSurvey({ survey }: { survey: Survey }) {
+  return (
+    <div style={{ height: '100vh' }}>
+      {renderAssessment({
+        survey,
+        initialAnswers: { 'first-name': 'Ahmad' },
+        onChange: (answers) => autosaveAnswers(answers),
+        onAnswer: (response: SurveyResponse, submitted: boolean) => track(response, submitted),
+        onSubmit: (response: SurveyResponse) => submitResponse(response),
+        exitPath: '/',
+        bgColor: 'color-black',
+        primaryColor: '#e11d48',
+        serviceSku: 'plan-premium-123',
+      })}
+    </div>
+  );
+}
+```
+
+It's purely `return <SurveyRunner {...props} />;` -- the returned element
+still has to be rendered by React as usual, so this isn't a way to use
+`<SurveyRunner>` outside of React; it's just the same component, called as a
+function instead of written as JSX.
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
   later changes) -- use it to resume a partially-answered survey. Each
-  question still renders normally, pre-filled -- unlike `predefinedAnswers`,
-  nothing is hidden on a page with other, unanswered questions still on it.
-  But if EVERY question on a page already has a value from
+  question still renders normally, pre-filled. But if EVERY question on a page already has a value from
   `initialAnswers`, that whole page is skipped outright (there'd be
   nothing left to show or answer there). This can't trigger just because
   the respondent finishes filling in a page themselves -- only a question
   that already had a value here before they started counts.
-
-  One reserved key: `__turnstileSiteKey`, if present, is pulled out and used
-  as the Cloudflare Turnstile site key for any `type: 'turnstile'` question
-  in the survey (see "Question types" below) -- it's never treated as a
-  real question's answer (there's no question with that id), so it never
-  shows up in `onSubmit`/`onAnswer`:
-
-  ```tsx
-  <SurveyRunner
-    survey={survey}
-    initialAnswers={{ __turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY }}
-  />
-  ```
-- `predefinedAnswers` is for answers you already know before the
-  respondent starts -- e.g. from a prior step in a larger flow, or profile
-  data already on file -- keyed by `id` (a question's `id`, same as
-  `QuestionDef.id`/`AnswerEntry.questionId`):
-
-  ```tsx
-  <SurveyRunner
-    survey={survey}
-    predefinedAnswers={[
-      { id: 'first-name', value: 'Ahmad' },
-      { id: 'last-name', value: 'Khalil' },
-    ]}
-  />
-  ```
-
-  Only read once, on mount (and again if `survey.id` changes), same as
-  `initialAnswers` -- but unlike `initialAnswers`, each of these questions
-  is also hidden from the respondent entirely, not just pre-filled, even on
-  a page with other, non-predefined questions still showing. A page where
-  every question is predefined (or otherwise already fully covered by
-  `initialAnswers`) is skipped outright. The value still counts as a real
-  answer for validation/branching/scoring, and shows up normally in
-  `onSubmit`/`onAnswer` -- this only changes what's rendered, not what's
-  considered answered. If both `initialAnswers` and `predefinedAnswers` set
-  the same question, `predefinedAnswers` wins (and that question is
-  hidden). An
-  `id` with no matching question in the survey is silently ignored.
 - `onAnswer` fires once per page advance -- when the respondent moves on to
   the next page, not on every keystroke/selection within a page (see
   `onChange` for that) -- with `submitted: false` and `response.answers`
@@ -280,6 +280,12 @@ function TakeSurvey({ survey }: { survey: Survey }) {
   ```tsx
   <SurveyRunner survey={survey} primaryColor="#e11d48" />
   ```
+- `serviceSku` is an opaque pass-through -- this library does nothing with
+  it beyond handing it back unchanged as `response.serviceSku` on every
+  `onAnswer`/`onSubmit` call, so a host can stamp a run with its own
+  identifier (e.g. which SKU/plan it belongs to) without this library
+  needing to know what it means. Omitted from `response` entirely when not
+  passed.
 - Like `<SurveyBuilder>`, `survey` is validated on mount/swap, with a plain
   error screen on a shape mismatch instead of a crash.
 - `onSubmit`'s `response` is a full `SurveyResponse` -- not just the raw
@@ -322,6 +328,18 @@ A few things worth calling out that aren't obvious from the types alone:
   derived output, not something to hand-author.
 - Answers (`Record<string, unknown>`) are a flat object keyed by each
   question's `id`, regardless of which page the question lives on.
+- `QuestionDef.descriptionColor` is a CSS color applied to `description`'s
+  own text wherever `<SurveyRunner>` renders it -- the Builder's settings
+  panel shows a color picker right under the Description/Body text field
+  (only once that field has text in it). Has no effect if `description`
+  itself is empty; falls back to the theme's default secondary/body text
+  color when unset. Builder-only -- `<SurveyRunner>` has no separate prop
+  for it, it's read straight off the question definition like `description`
+  itself:
+
+  ```json
+  { "id": "notice", "type": "label", "label": "Heads up", "description": "This section is optional.", "descriptionColor": "#b45309" }
+  ```
 - `QuestionType` includes `'turnstile'` -- a Cloudflare Turnstile challenge.
   Its only "answer" is the token Turnstile hands back once the respondent
   passes; this library captures that token and that's it -- **verifying it
@@ -338,10 +356,22 @@ A few things worth calling out that aren't obvious from the types alone:
   - `AnswerEntry.value` is the real token; `AnswerEntry.displayValue` is
     `'Verified'` instead, since showing a ~2000-character opaque string in
     a human-facing review list or export would be useless.
-  - Needs a site key to actually render -- see `initialAnswers`'
-    `__turnstileSiteKey` convention above. Without one, the question
-    renders a clear "Turnstile site key not configured" message instead of
-    a broken/blank widget.
+  - Needs a site key to actually render -- set via `turnstileSiteKey` on
+    the question definition itself (`QuestionDef.turnstileSiteKey`), not a
+    `<SurveyRunner>` prop. The Builder's settings panel treats this as
+    mandatory for a turnstile question (required marker + inline error
+    while empty), and `<SurveyBuilder>`'s Publish action actually enforces
+    it -- `onSave` won't fire for a survey with a turnstile question
+    missing its site key (see `<SurveyBuilder>`'s own docs above):
+
+    ```json
+    { "id": "verify", "type": "turnstile", "label": "Verification", "turnstileSiteKey": "1x00000000000000000000AA" }
+    ```
+
+    Without one, the question renders a clear "Turnstile site key not
+    configured" message instead of a broken/blank widget. Like every other
+    `QuestionDef` field, it's never echoed into a submitted response --
+    `AnswerEntry.value` is the respondent's token, never the site key.
   - Renders real Cloudflare UI, so it needs network access to
     `challenges.cloudflare.com` -- this is the one place in the library
     that loads an external script at runtime (lazily, only if the survey

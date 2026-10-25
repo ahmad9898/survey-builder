@@ -89,7 +89,9 @@ export function MultiQuestionStage({
                 </Typography>
               )}
               {!isInformational && question.description && (
-                <Typography sx={{ fontSize: 14, color: 'text.secondary', mb: 1.5 }}>{question.description}</Typography>
+                <Typography sx={{ fontSize: 14, color: question.descriptionColor || 'text.secondary', mb: 1.5 }}>
+                  {question.description}
+                </Typography>
               )}
               <Control
                 question={question}

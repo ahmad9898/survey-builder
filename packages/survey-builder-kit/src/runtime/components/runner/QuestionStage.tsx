@@ -103,7 +103,9 @@ export function QuestionStage({
       )}
 
       {!isInformational && question.description && (
-        <Typography sx={{ fontSize: 14.5, color: 'text.secondary', mb: 3 }}>{question.description}</Typography>
+        <Typography sx={{ fontSize: 14.5, color: question.descriptionColor || 'text.secondary', mb: 3 }}>
+          {question.description}
+        </Typography>
       )}
 
       <Control question={question} value={value} onChange={onChange} onAdvance={onAdvance} autoFocus />

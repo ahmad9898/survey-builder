@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Box, Typography } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { usePlayerStore } from '../../../store/playerStore';
 import { loadTurnstileScript } from '../turnstileLoader';
 import type { QuestionControlProps } from './types';
 
-// The one control in this directory that doesn't just read its own props --
-// every other control is pure/prop-driven, but the Turnstile site key is a
-// per-RUNNER-INSTANCE config value, not part of this ONE question's own
-// definition (QuestionControlProps has no slot for that, deliberately).
-// See SurveyRunner.tsx's own comment on how the site key reaches the store
-// via a reserved `__turnstileSiteKey` initialAnswers entry.
-export function TurnstileControl({ value, onChange }: QuestionControlProps) {
-  const siteKey = usePlayerStore((s) => s.turnstileSiteKey);
+export function TurnstileControl({ question, value, onChange }: QuestionControlProps) {
+  const siteKey = question.turnstileSiteKey;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);

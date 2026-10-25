@@ -30,13 +30,6 @@ export interface PlayerState {
   // it can never flip true mid-page just because the respondent finished
   // filling in the last field themselves.
   initialAnswerQuestionIds: Set<string>;
-  // Cloudflare Turnstile's site key, pulled out of a reserved
-  // `__turnstileSiteKey` initialAnswers entry (see SurveyRunner.tsx) rather
-  // than kept as a real answer -- host-level CONFIG, not per-run response
-  // data, so unlike everything else above it's never reset by loadSurvey or
-  // reset() (a different survey, or a "Retake", doesn't change what site
-  // key this Runner instance was configured with).
-  turnstileSiteKey: string | null;
   visitedPageStack: string[];
   finished: boolean;
   score: ScoreResult | null;
@@ -45,7 +38,6 @@ export interface PlayerState {
   setAnswers: (data: Record<string, unknown>) => void;
   setPredefinedQuestionIds: (ids: Set<string>) => void;
   setInitialAnswerQuestionIds: (ids: Set<string>) => void;
-  setTurnstileSiteKey: (key: string | null) => void;
   goNext: () => void;
   goBack: () => void;
   reset: () => void;
@@ -67,7 +59,6 @@ export function createPlayerStore() {
     answers: {},
     predefinedQuestionIds: new Set(),
     initialAnswerQuestionIds: new Set(),
-    turnstileSiteKey: null,
     visitedPageStack: [],
     finished: false,
     score: null,
@@ -87,7 +78,6 @@ export function createPlayerStore() {
     setAnswers: (data) => set({ answers: data }),
     setPredefinedQuestionIds: (ids) => set({ predefinedQuestionIds: ids }),
     setInitialAnswerQuestionIds: (ids) => set({ initialAnswerQuestionIds: ids }),
-    setTurnstileSiteKey: (key) => set({ turnstileSiteKey: key }),
 
     goNext: () => {
       const { survey, currentPageId, answers, visitedPageStack } = get();

@@ -483,6 +483,54 @@ export function QuestionCard({
               value={question.description ?? ''}
               onChange={(e) => updateQuestion(question.id, { description: e.target.value })}
             />
+            {question.description && (
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Typography variant="caption" color="text.secondary">
+                  {isLabel ? 'Body text' : 'Description'} color
+                </Typography>
+                <Box
+                  component="input"
+                  type="color"
+                  value={question.descriptionColor ?? '#64748b'}
+                  onChange={(e) => updateQuestion(question.id, { descriptionColor: e.target.value })}
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    p: 0,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    cursor: 'pointer',
+                    bgcolor: 'transparent',
+                    '&::-webkit-color-swatch-wrapper': { p: 0.25 },
+                    '&::-webkit-color-swatch': { border: 'none', borderRadius: 0.5 },
+                  }}
+                />
+                {question.descriptionColor && (
+                  <Button size="small" onClick={() => updateQuestion(question.id, { descriptionColor: undefined })}>
+                    Reset
+                  </Button>
+                )}
+              </Stack>
+            )}
+            {isTurnstile && (
+              <TextField
+                label="Turnstile SiteKey"
+                size="small"
+                fullWidth
+                required
+                value={question.turnstileSiteKey ?? ''}
+                onChange={(e) =>
+                  updateQuestion(question.id, { turnstileSiteKey: e.target.value || undefined })
+                }
+                error={!question.turnstileSiteKey?.trim()}
+                helperText={
+                  question.turnstileSiteKey?.trim()
+                    ? 'The Cloudflare Turnstile site key this widget renders with (public, safe to expose in the browser).'
+                    : 'Required -- the Cloudflare Turnstile site key this widget renders with.'
+                }
+              />
+            )}
             {isTurnstile && (
               <Typography variant="caption" color="text.secondary">
                 Always required -- a respondent can't continue past this question without completing the

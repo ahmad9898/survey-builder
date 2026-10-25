@@ -90,6 +90,7 @@ export const surveyResponseSchema = {
     score: scoreResultSchema,
     startedAt: { type: 'string' },
     completedAt: { type: 'string' },
+    serviceSku: { type: 'string' },
   },
 } as const;
 

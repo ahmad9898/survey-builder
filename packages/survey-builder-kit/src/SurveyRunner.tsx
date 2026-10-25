@@ -20,10 +20,6 @@ import { buildResponsePayload } from './domain/responsePayload';
 import { newId } from './lib/id';
 import { SurveyValidationError } from './components/SurveyValidationError';
 
-// See SurveyRunnerProps.initialAnswers's own comment -- a host passes the
-// Turnstile site key under this exact key, not as a real question's answer.
-const TURNSTILE_SITE_KEY_RESERVED_ID = '__turnstileSiteKey';
-
 export interface SurveyRunnerProps {
   /** The survey to present to a respondent. */
   survey: Survey;
@@ -37,19 +33,6 @@ export interface SurveyRunnerProps {
    * show or answer there anyway. (This can't be triggered by the
    * respondent finishing a page themselves -- only questions that already
    * had a value here BEFORE the respondent started count.)
-   *
-   * One reserved key: `__turnstileSiteKey`, if present, is pulled out and
-   * used as the Cloudflare Turnstile site key for any `type: 'turnstile'`
-   * question in this survey -- it's never treated as a real question's
-   * answer (there's no question with that id), so it never shows up in
-   * `onSubmit`/`onAnswer`:
-   *
-   * ```tsx
-   * <SurveyRunner
-   *   survey={survey}
-   *   initialAnswers={{ __turnstileSiteKey: import.meta.env.VITE_TURNSTILE_SITE_KEY }}
-   * />
-   * ```
    */
   initialAnswers?: Record<string, unknown>;
   /**
@@ -136,6 +119,14 @@ export interface SurveyRunnerProps {
    * way `bgColor` overrides literal CSS properties.
    */
   primaryColor?: string;
+  /**
+   * Opaque pass-through value -- this library does nothing with it beyond
+   * handing it back unchanged on every `SurveyResponse` (`onAnswer`'s and
+   * `onSubmit`'s), so a host can stamp a response with its own identifier
+   * (e.g. which SKU/plan this assessment run belongs to) without this
+   * library needing to know what it means.
+   */
+  serviceSku?: string;
 }
 
 // One Emotion cache per component, keyed distinctly from SurveyBuilder's --
@@ -193,6 +184,7 @@ function SurveyRunnerInner({
   onAnswer,
   onSubmit,
   exitPath,
+  serviceSku,
 }: SurveyRunnerProps) {
   const playerSurvey = usePlayerStore((s) => s.survey);
   const answers = usePlayerStore((s) => s.answers);
@@ -202,7 +194,6 @@ function SurveyRunnerInner({
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const setPredefinedQuestionIds = usePlayerStore((s) => s.setPredefinedQuestionIds);
   const setInitialAnswerQuestionIds = usePlayerStore((s) => s.setInitialAnswerQuestionIds);
-  const setTurnstileSiteKey = usePlayerStore((s) => s.setTurnstileSiteKey);
 
   // Timestamps this specific run (not the survey itself) -- reset alongside
   // the store's own state whenever a genuinely different survey is loaded,
@@ -238,6 +229,7 @@ function SurveyRunnerInner({
       score,
       startedAt: startedAtRef.current,
       ...(completedAt ? { completedAt } : {}),
+      ...(serviceSku ? { serviceSku } : {}),
     };
   };
 
@@ -252,31 +244,20 @@ function SurveyRunnerInner({
     startedAtRef.current = new Date().toISOString();
     loadSurvey(survey);
 
-    // __turnstileSiteKey is a reserved config key, not a real question's
-    // answer -- pulled out here, before anything else below ever sees
-    // `initialAnswers`, so it can't end up in `answers`/
-    // `initialAnswerQuestionIds` (there's no question with that id on any
-    // page anyway, so it would've been harmless either way, but keeping
-    // `answers` free of it is still the more honest state to carry around).
-    const { [TURNSTILE_SITE_KEY_RESERVED_ID]: turnstileSiteKey, ...realInitialAnswers } = initialAnswers ?? {};
-    if (initialAnswers && TURNSTILE_SITE_KEY_RESERVED_ID in initialAnswers) {
-      setTurnstileSiteKey(typeof turnstileSiteKey === 'string' ? turnstileSiteKey : null);
-    }
-
     // predefinedAnswers wins over initialAnswers on a shared id -- merged
     // in that order so its values are the ones actually present in
     // `answers` for whichever ids overlap.
     if (initialAnswers || predefinedAnswers) {
       setAnswers({
-        ...realInitialAnswers,
+        ...initialAnswers,
         ...Object.fromEntries((predefinedAnswers ?? []).map((a) => [a.id, a.value])),
       });
     }
     if (predefinedAnswers?.length) {
       setPredefinedQuestionIds(new Set(predefinedAnswers.map((a) => a.id)));
     }
-    if (Object.keys(realInitialAnswers).length > 0) {
-      setInitialAnswerQuestionIds(new Set(Object.keys(realInitialAnswers)));
+    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
+      setInitialAnswerQuestionIds(new Set(Object.keys(initialAnswers)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [survey.id]);
@@ -373,6 +354,7 @@ function SurveyRunnerInner({
         score,
         startedAt: startedAtRef.current,
         completedAt: new Date().toISOString(),
+        ...(serviceSku ? { serviceSku } : {}),
       });
     }
     if (!finished) hasSubmittedRef.current = false;
@@ -381,4 +363,15 @@ function SurveyRunnerInner({
 
   if (!playerSurvey) return null;
   return finished ? <SubmittedScreen /> : <RunnerShell exitPath={exitPath} />;
+}
+
+/**
+ * Element-factory wrapper around <SurveyRunner> -- same props, returned as a
+ * React element instead of written as JSX. Useful when the props are
+ * assembled somewhere that isn't itself writing JSX for this element (e.g. a
+ * plain function); the returned element still has to be rendered by React as
+ * usual (e.g. `{renderAssessment(props)}` inside a component's JSX).
+ */
+export function renderAssessment(props: SurveyRunnerProps) {
+  return <SurveyRunner {...props} />;
 }

@@ -88,6 +88,14 @@ export interface QuestionDef {
   type: QuestionType;
   label: string;
   description?: string;
+  // CSS color (e.g. a hex string from the Builder's color picker) applied to
+  // `description`'s own text wherever it's rendered in <SurveyRunner> --
+  // QuestionStage, MultiQuestionStage, and LabelInfoControl (the one `type:
+  // 'label'` uses, where this field is the "Body text" rather than a
+  // description) all read it. Has no effect if `description` itself is
+  // empty. Falls back to the theme's default secondary text color when
+  // unset, same as before this field existed.
+  descriptionColor?: string;
   required?: boolean;
   requiredMessage?: string; // custom error shown when a required field is left empty
   choices?: string[]; // for singleChoice / multipleChoice
@@ -127,6 +135,17 @@ export interface QuestionDef {
   // (omitted) for every question, including ones saved before this field
   // existed.
   hasTrigger?: boolean;
+  // For type: 'turnstile' only -- the Cloudflare Turnstile SITE key (public,
+  // safe to ship to the browser; NOT the secret key) this one widget
+  // renders with. The Builder UI treats this as mandatory for a turnstile
+  // question -- shown with a required marker and an inline error while
+  // empty -- but it stays optional here, same reasoning as Survey.type:
+  // hand-authored or older survey JSON must still be able to load even if
+  // it's missing (the widget just shows its own "not configured" error at
+  // runtime instead of failing validation outright). Never echoed into a
+  // submitted response -- buildResponsePayload builds each AnswerEntry
+  // field-by-field, not by spreading QuestionDef, so this never leaks out.
+  turnstileSiteKey?: string;
 }
 
 export interface DisqualifyingNotice {

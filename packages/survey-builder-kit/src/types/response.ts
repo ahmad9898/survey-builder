@@ -93,4 +93,6 @@ export interface SurveyResponse {
   score?: ScoreResult;
   startedAt: string;
   completedAt?: string;
+  /** Echoed back unchanged from <SurveyRunner>'s own `serviceSku` prop -- see that prop's own comment. Absent if it wasn't passed. */
+  serviceSku?: string;
 }
