@@ -78,22 +78,27 @@ export type QuestionType =
 
 export interface QuestionDef {
   id: string; // property key, unique survey-wide
-  // Always equal to `id` -- `id` IS a slug of `title` (see slugifyUnique/
-  // finalizeQuestionId in the builder store), kept in sync with it
-  // everywhere `id` is set. Exposed as its own field so a host reading the
-  // published survey or a submitted response doesn't need to already know
-  // that fact to find it -- see AnswerEntry.slug for the response-side
-  // counterpart. Survey JSON saved before this field existed doesn't have
-  // it; normalizeSurvey() backfills it from `id`.
+  // Always equal to `id` -- `id` IS a slug of `title`, auto-derived once at
+  // creation (slugifyUnique/finalizeQuestionId in the builder store) and
+  // freely renameable after that via the Builder's Slug field
+  // (renameQuestionId), which keeps the two in sync and rewrites every
+  // same-survey reference (visibilityRule/branch fieldPath scopes,
+  // scoringMap keys) to the new value. Exposed as its own field so a host
+  // reading the published survey or a submitted response doesn't need to
+  // already know that fact to find it -- see AnswerEntry.slug for the
+  // response-side counterpart. A rename can't reach responses already
+  // submitted under the old id/slug -- those keep recording whatever was
+  // current at submission time. Survey JSON saved before this field
+  // existed doesn't have it; normalizeSurvey() backfills it from `id`.
   slug: string;
   // The author-facing name for this question -- same role `Survey.title`/
   // `SurveyPage.title` play at their levels, distinct from `label` (the
-  // text shown to the RESPONDENT). Freely editable at any time, unlike
-  // `slug`/`id`: only the slug derived from it, once, at creation, is
-  // locked (finalizeQuestionId) -- editing `title` afterward never moves
-  // it. Never rendered in <SurveyRunner> -- Builder-only. Survey JSON
-  // saved before this field existed doesn't have it; normalizeSurvey()
-  // backfills it from `label`.
+  // text shown to the RESPONDENT). Freely editable at any time; unlike
+  // `slug`/`id`, editing `title` afterward never moves them on its own --
+  // see `slug`'s own comment for how `id` is renamed instead. Never
+  // rendered in <SurveyRunner> -- Builder-only. Survey JSON saved before
+  // this field existed doesn't have it; normalizeSurvey() backfills it
+  // from `label`.
   title: string;
   type: QuestionType;
   label: string;

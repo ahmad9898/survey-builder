@@ -1,8 +1,8 @@
 import { createStore } from 'zustand/vanilla';
-import { CURRENT_SCHEMA_VERSION, type BranchRule, type ConditionGroup, type QuestionDef, type QuestionType, type ScoringEntry, type Survey, type SurveyPage } from '../../types/survey';
+import { CURRENT_SCHEMA_VERSION, isConditionGroup, type BranchRule, type ConditionGroup, type QuestionDef, type QuestionType, type ScoringEntry, type Survey, type SurveyPage } from '../../types/survey';
 import { compilePage } from '../../domain/schemaCompiler';
 import { collapseSingleEdge, pageHasNoFallbackRisk } from '../../domain/branchInvariant';
-import { newFieldId, newId, slugifyUnique } from '../../lib/id';
+import { newFieldId, newId, sanitizeFreeTextCode, slugifyUnique } from '../../lib/id';
 import { createStoreContext } from '../../lib/createStoreContext';
 import { questionTypeMeta } from '../questionTypes';
 import type { FlowLayoutStoreApi } from './flowLayoutStore';
@@ -90,13 +90,11 @@ export interface BuilderState {
   removeQuestion: (questionId: string) => void;
   reorderQuestion: (pageId: string, fromIndex: number, toIndex: number) => void;
   selectQuestion: (questionId: string | null) => void;
-  // `id` deliberately excluded from the patch shape -- a question's id is
-  // only ever auto-derived from its title once, right after creation (see
-  // addQuestion/finalizeQuestionId); editing the title afterward must never
-  // change it (branch/visibility conditions, scoringMap keys, and already-
-  // saved responses all embed the id as a plain string, not a live
-  // reference -- see finalizeQuestionId's own comment).
-  updateQuestion: (questionId: string, patch: Partial<Omit<QuestionDef, 'id'>>) => void;
+  // `id`/`slug` deliberately excluded from the patch shape -- renaming them
+  // needs the reference-cascading renameQuestionId below, not a plain
+  // field overwrite (editing the title afterward never moves the id on its
+  // own; see finalizeQuestionId's own comment).
+  updateQuestion: (questionId: string, patch: Partial<Omit<QuestionDef, 'id' | 'slug'>>) => void;
   // Call once the author is done naming a just-created question (e.g. the
   // title field's onBlur) -- replaces its placeholder id with a slug of its
   // current title, deduped survey-wide, but ONLY if this is still the
@@ -104,6 +102,22 @@ export interface BuilderState {
   // yet. A no-op every time after the first (including for every other,
   // already-locked question), by design -- see the field's own comment.
   finalizeQuestionId: (questionId: string) => void;
+  // General-purpose rename of an EXISTING question's id/slug (unlike
+  // finalizeQuestionId, works any time, not just once right after
+  // creation). `rawSlug` is sanitized (sanitizeFreeTextCode) before use, so
+  // the Builder can call this directly from a field's onChange/onBlur
+  // without pre-validating. Rejects (shows a snackbar error, leaves the
+  // survey untouched, returns false) an empty result or one that collides
+  // with another question's id; otherwise renames the question's id/slug
+  // and rewrites every same-survey reference that embeds it as a plain
+  // string -- every visibilityRule and branch rule's fieldPath scope
+  // (`#/properties/<id>`) survey-wide, plus its scoringMap entry -- so
+  // existing conditions/scoring keep working under the new id. Does NOT
+  // and cannot reach already-saved SurveyResponses out in the world; those
+  // keep recording whatever id/slug was current when they were submitted
+  // (see AnswerEntry.questionId/slug), same as any other after-the-fact
+  // survey edit.
+  renameQuestionId: (questionId: string, rawSlug: string) => boolean;
   setVisibilityRule: (questionId: string, group: ConditionGroup | null) => void;
 
   setScoringEnabled: (enabled: boolean) => void;
@@ -124,6 +138,23 @@ function findPageContainingQuestion(survey: Survey, questionId: string): SurveyP
 
 function allFieldIds(survey: Survey): Set<string> {
   return new Set(survey.pages.flatMap((p) => p.questions.map((q) => q.id)));
+}
+
+// Rewrites every ConditionLeaf.fieldPath equal to `oldScope` (a
+// `#/properties/<id>` JSONForms scope -- see conditionFields.ts) to
+// `newScope`, recursively through nested groups. Used by renameQuestionId
+// so an id change doesn't silently orphan the conditions that reference it.
+function remapConditionGroup(group: ConditionGroup, oldScope: string, newScope: string): ConditionGroup {
+  return {
+    ...group,
+    conditions: group.conditions.map((node) =>
+      isConditionGroup(node)
+        ? remapConditionGroup(node, oldScope, newScope)
+        : node.fieldPath === oldScope
+          ? { ...node, fieldPath: newScope }
+          : node,
+    ),
+  };
 }
 
 export interface BuilderStoreDeps {
@@ -556,6 +587,54 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           freshQuestionId: null,
         };
       }),
+
+    renameQuestionId: (questionId, rawSlug) => {
+      const s = get();
+      const page = findPageContainingQuestion(s.survey, questionId);
+      const question = page?.questions.find((q) => q.id === questionId);
+      if (!page || !question) return false;
+
+      const nextId = sanitizeFreeTextCode(rawSlug).trim();
+      if (!nextId) {
+        snackbarStore.getState().showError('Slug cannot be empty.');
+        return false;
+      }
+      if (nextId === questionId) return true;
+
+      const otherIds = allFieldIds(s.survey);
+      otherIds.delete(questionId);
+      if (otherIds.has(nextId)) {
+        snackbarStore.getState().showError(`"${nextId}" is already used by another question.`);
+        return false;
+      }
+
+      const oldScope = `#/properties/${questionId}`;
+      const newScope = `#/properties/${nextId}`;
+
+      const pages = s.survey.pages.map((p) => {
+        const questions = p.questions.map((q) => {
+          const renamed = q.id === questionId ? { ...q, id: nextId, slug: nextId } : q;
+          return renamed.visibilityRule
+            ? { ...renamed, visibilityRule: remapConditionGroup(renamed.visibilityRule, oldScope, newScope) }
+            : renamed;
+        });
+        const branch = p.branch.map((rule) => ({ ...rule, when: remapConditionGroup(rule.when, oldScope, newScope) }));
+        return recompilePage({ ...p, questions, branch });
+      });
+
+      const scoringMap = { ...(s.survey.scoringMap ?? {}) };
+      if (scoringMap[oldScope]) {
+        scoringMap[newScope] = scoringMap[oldScope];
+        delete scoringMap[oldScope];
+      }
+
+      set({
+        survey: { ...s.survey, pages, scoringMap, updatedAt: new Date().toISOString() },
+        selectedQuestionId: s.selectedQuestionId === questionId ? nextId : s.selectedQuestionId,
+        freshQuestionId: s.freshQuestionId === questionId ? nextId : s.freshQuestionId,
+      });
+      return true;
+    },
 
     setVisibilityRule: (questionId, group) => {
       get().updateQuestion(questionId, { visibilityRule: group });

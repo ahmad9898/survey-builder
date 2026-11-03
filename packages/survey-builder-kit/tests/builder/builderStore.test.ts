@@ -469,6 +469,131 @@ describe('finalizeQuestionId', () => {
   });
 });
 
+describe('renameQuestionId', () => {
+  it('renames an already-finalized id/slug, any time, not just right after creation', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const id = useBuilderStore.getState().survey.pages[0].questions[0].id;
+
+    const ok = useBuilderStore.getState().renameQuestionId(id, 'favorite-color');
+
+    expect(ok).toBe(true);
+    const question = useBuilderStore.getState().survey.pages[0].questions[0];
+    expect(question.id).toBe('favorite-color');
+    expect(question.slug).toBe('favorite-color');
+  });
+
+  it('strips characters outside letters/digits/underscore/hyphen before applying', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const id = useBuilderStore.getState().survey.pages[0].questions[0].id;
+
+    useBuilderStore.getState().renameQuestionId(id, 'favorite color!! ');
+
+    expect(useBuilderStore.getState().survey.pages[0].questions[0].id).toBe('favoritecolor');
+  });
+
+  it('rejects an empty result, leaves the question untouched, and shows a snackbar error', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const id = useBuilderStore.getState().survey.pages[0].questions[0].id;
+
+    const ok = useBuilderStore.getState().renameQuestionId(id, '   ');
+
+    expect(ok).toBe(false);
+    expect(useBuilderStore.getState().survey.pages[0].questions[0].id).toBe(id);
+    expect(useSnackbarStore.getState().message).toMatch(/cannot be empty/i);
+  });
+
+  it('rejects a slug already used by another question, leaves both untouched', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const [firstId, secondId] = useBuilderStore.getState().survey.pages[0].questions.map((q) => q.id);
+
+    const ok = useBuilderStore.getState().renameQuestionId(secondId, firstId);
+
+    expect(ok).toBe(false);
+    expect(useBuilderStore.getState().survey.pages[0].questions.map((q) => q.id)).toEqual([firstId, secondId]);
+    expect(useSnackbarStore.getState().message).toMatch(/already used/i);
+  });
+
+  it('is a no-op success when the new value is identical to the current id', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const id = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    const before = useBuilderStore.getState().survey;
+
+    const ok = useBuilderStore.getState().renameQuestionId(id, id);
+
+    expect(ok).toBe(true);
+    expect(useBuilderStore.getState().survey).toBe(before);
+  });
+
+  it('rewrites a visibilityRule fieldPath elsewhere in the survey that scopes the renamed question', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText'); // the one being renamed
+    useBuilderStore.getState().addQuestion(pageId, 'shortText'); // the one whose visibility depends on it
+    const [targetId, dependentId] = useBuilderStore.getState().survey.pages[0].questions.map((q) => q.id);
+
+    useBuilderStore.getState().setVisibilityRule(dependentId, {
+      logic: 'AND',
+      conditions: [{ fieldPath: `#/properties/${targetId}`, operator: 'eq', value: 'yes' }],
+    });
+
+    useBuilderStore.getState().renameQuestionId(targetId, 'renamed-id');
+
+    const dependent = useBuilderStore.getState().survey.pages[0].questions.find((q) => q.id === dependentId)!;
+    expect(dependent.visibilityRule).toEqual({
+      logic: 'AND',
+      conditions: [{ fieldPath: '#/properties/renamed-id', operator: 'eq', value: 'yes' }],
+    });
+  });
+
+  it('rewrites a branch rule fieldPath (including nested groups) that scopes the renamed question', () => {
+    const [pageId, secondPageId] = (() => {
+      useBuilderStore.getState().addPage();
+      return pageIds();
+    })();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const targetId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+
+    const rule: BranchRule = {
+      id: 'r1',
+      when: {
+        logic: 'AND',
+        conditions: [
+          { logic: 'OR', conditions: [{ fieldPath: `#/properties/${targetId}`, operator: 'eq', value: 'x' }] },
+        ],
+      },
+      goToPageId: secondPageId,
+    };
+    useBuilderStore.getState().addBranchRule(pageId, rule);
+
+    useBuilderStore.getState().renameQuestionId(targetId, 'renamed-id');
+
+    const page = useBuilderStore.getState().survey.pages.find((p) => p.id === pageId)!;
+    const nested = page.branch[0].when.conditions[0];
+    expect(nested).toEqual({
+      logic: 'OR',
+      conditions: [{ fieldPath: '#/properties/renamed-id', operator: 'eq', value: 'x' }],
+    });
+  });
+
+  it('moves the scoringMap entry from the old scope key to the new one', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().addQuestion(pageId, 'shortText');
+    const targetId = useBuilderStore.getState().survey.pages[0].questions[0].id;
+    useBuilderStore.getState().setScoringForQuestion(targetId, { optionScores: { yes: 1 } });
+
+    useBuilderStore.getState().renameQuestionId(targetId, 'renamed-id');
+
+    const scoringMap = useBuilderStore.getState().survey.scoringMap ?? {};
+    expect(scoringMap[`#/properties/${targetId}`]).toBeUndefined();
+    expect(scoringMap['#/properties/renamed-id']).toEqual({ optionScores: { yes: 1 } });
+  });
+});
+
 describe('setSurveyType', () => {
   it('sets Survey.type as given -- sanitization is the UI\'s job, not this setter\'s', () => {
     useBuilderStore.getState().setSurveyType('intake-2026');

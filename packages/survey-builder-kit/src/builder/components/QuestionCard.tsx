@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -28,6 +28,7 @@ import type { DisqualifyingNotice, QuestionDef, Survey } from '../../types/surve
 import { questionTypeMeta } from '../questionTypes';
 import { QUESTION_TYPE_ICONS } from '../questionTypeIcons';
 import { useBuilderStore } from '../store/builderStore';
+import { sanitizeFreeTextCode } from '../../lib/id';
 import { ConditionEditor, type FieldOption } from './ConditionEditor';
 import { ScoringEditor } from './ScoringEditor';
 
@@ -319,6 +320,7 @@ export function QuestionCard({
   const removeQuestion = useBuilderStore((s) => s.removeQuestion);
   const updateQuestion = useBuilderStore((s) => s.updateQuestion);
   const finalizeQuestionId = useBuilderStore((s) => s.finalizeQuestionId);
+  const renameQuestionId = useBuilderStore((s) => s.renameQuestionId);
   const setVisibilityRule = useBuilderStore((s) => s.setVisibilityRule);
   const survey = useBuilderStore((s) => s.survey);
   const warningTokens = useTheme().custom.warningBanner;
@@ -331,6 +333,15 @@ export function QuestionCard({
 
   const expanded = selectedQuestionId === question.id;
   const toggleExpanded = () => selectQuestion(expanded ? null : question.id);
+
+  // Local draft so keystrokes feel immediate and a rejected rename (empty,
+  // or a collision with another question's id) can revert the field to
+  // `question.slug` without the store ever seeing the bad value -- the
+  // actual rename only commits on blur, via renameQuestionId.
+  const [slugDraft, setSlugDraft] = useState(question.slug);
+  useEffect(() => {
+    setSlugDraft(question.slug);
+  }, [question.slug]);
 
   const meta = questionTypeMeta(question.type);
   const hasChoices = question.type === 'singleChoice' || question.type === 'multipleChoice';
@@ -462,9 +473,12 @@ export function QuestionCard({
               label="Slug (question ID)"
               size="small"
               fullWidth
-              disabled
-              value={question.slug}
-              helperText="Generated from the title above when this question was first created -- can't be changed afterward."
+              value={slugDraft}
+              onChange={(e) => setSlugDraft(sanitizeFreeTextCode(e.target.value))}
+              onBlur={() => {
+                if (!renameQuestionId(question.id, slugDraft)) setSlugDraft(question.slug);
+              }}
+              helperText="Letters, digits, underscores, and hyphens only -- must stay unique across the survey. Renaming it updates every condition/branch/scoring rule that references it, but NOT responses already submitted under the old slug."
               slotProps={{ htmlInput: { sx: { fontFamily: 'monospace' } } }}
             />
             <TextField

@@ -146,6 +146,15 @@ inside a flex column), or it will collapse to its content height.
   applies to both the Publish button and the Ctrl/Cmd+S shortcut; `onChange`
   (autosave) and "Export JSON" are unaffected -- only the formal
   publish-to-host action is gated.
+- Each question's "Slug (question ID)" field (`QuestionDef.id`/`slug`,
+  always kept equal) is editable, not just auto-derived once at creation --
+  letters, digits, underscores, and hyphens only (other characters are
+  stripped as typed), and it must stay unique survey-wide. Renaming it
+  rewrites every same-survey reference that embeds the old value --
+  visibility rules, branch rules, and scoring -- so those keep working
+  under the new id. It can't reach `SurveyResponse`s already submitted
+  under the old id/slug, though: those keep whatever was current when they
+  were submitted, same as any other after-the-fact survey edit.
 
 `newSurvey()` is also exported, in case you want a valid empty `Survey` to
 seed your own state with ahead of time:
