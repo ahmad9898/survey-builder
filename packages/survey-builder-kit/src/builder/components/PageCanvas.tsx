@@ -1,4 +1,4 @@
-import { Box, Chip, Stack, Typography } from '@mui/material';
+import { Box, Checkbox, Chip, FormControlLabel, Stack, Typography } from '@mui/material';
 import Button from '@mui/material/Button';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import { useBuilderStore } from '../store/builderStore';
@@ -9,6 +9,7 @@ export function PageCanvas() {
   const survey = useBuilderStore((s) => s.survey);
   const selectedPageId = useBuilderStore((s) => s.selectedPageId);
   const setViewMode = useBuilderStore((s) => s.setViewMode);
+  const setPageShowTitle = useBuilderStore((s) => s.setPageShowTitle);
   const page = survey.pages.find((p) => p.id === selectedPageId);
 
   if (!page) return null;
@@ -43,6 +44,21 @@ export function PageCanvas() {
           Shown only when a prior answer requires review.
         </Typography>
       )}
+      <FormControlLabel
+        sx={{ mb: 2, mt: -1 }}
+        control={
+          <Checkbox
+            size="small"
+            checked={!!page.showTitle}
+            onChange={(e) => setPageShowTitle(page.id, e.target.checked)}
+          />
+        }
+        label={
+          <Typography variant="body2" color="text.secondary">
+            Show this page's title to respondents
+          </Typography>
+        }
+      />
 
       <QuestionListEditor page={page} />
     </Box>

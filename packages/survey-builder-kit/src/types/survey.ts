@@ -186,6 +186,16 @@ export interface SurveyPage {
   // the pairing at the type level), so runtime navigation still only ever
   // stops at an actual 'end', never on this flag alone.
   blocksSubmission?: boolean;
+  // Whether `title` is shown to the respondent in <SurveyRunner> -- as the
+  // small caption above a single-question page's own question text
+  // (QuestionStage), or as the page-level heading above a multi-question
+  // page's stacked questions (MultiQuestionStage). Defaults to/omitted as
+  // false (hidden) -- most page titles here are Builder-only organizational
+  // labels (e.g. "Page 1"), not copy meant for the respondent, so showing
+  // them is something the author opts into per page, not something they
+  // have to opt out of everywhere. Never affects the Builder's own canvas,
+  // sidebar, or flow map, which always show `title` regardless.
+  showTitle?: boolean;
 }
 
 // Bumped when the Survey JSON shape changes in a way that would need a

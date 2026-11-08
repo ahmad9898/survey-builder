@@ -4,8 +4,6 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider } from '@emotion/react';
 import createCache from '@emotion/cache';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import type { Survey } from './types/survey';
 import type { AnswerEntry, PredefinedAnswer, SurveyResponse } from './types/response';
 import { CURRENT_ANSWERS_FORMAT_VERSION } from './types/response';
@@ -152,25 +150,23 @@ export function SurveyRunner(props: SurveyRunnerProps) {
     <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          {/* The one DOM wrapper between the (non-DOM) providers above and
-              whichever branch renders below -- bgColor's whole mechanism is
-              this className, so it has to land on every render path
-              (error / in-progress / submitted), not just one. height:
-              '100%' here, not on this Box's child, is what lets the
-              existing "renders at height: 100% of whatever you mount it
-              in" contract keep working with an extra DOM layer now in
-              between. */}
-          <Box className={props.bgColor} sx={{ height: '100%' }}>
-            {!validation.valid ? (
-              <SurveyValidationError errors={validation.errors} />
-            ) : (
-              <PlayerStoreProvider>
-                <SurveyRunnerInner {...props} survey={normalizeSurvey(props.survey)} />
-              </PlayerStoreProvider>
-            )}
-          </Box>
-        </LocalizationProvider>
+        {/* The one DOM wrapper between the (non-DOM) providers above and
+            whichever branch renders below -- bgColor's whole mechanism is
+            this className, so it has to land on every render path
+            (error / in-progress / submitted), not just one. height:
+            '100%' here, not on this Box's child, is what lets the
+            existing "renders at height: 100% of whatever you mount it
+            in" contract keep working with an extra DOM layer now in
+            between. */}
+        <Box className={props.bgColor} sx={{ height: '100%' }}>
+          {!validation.valid ? (
+            <SurveyValidationError errors={validation.errors} />
+          ) : (
+            <PlayerStoreProvider>
+              <SurveyRunnerInner {...props} survey={normalizeSurvey(props.survey)} />
+            </PlayerStoreProvider>
+          )}
+        </Box>
       </ThemeProvider>
     </CacheProvider>
   );

@@ -9,8 +9,9 @@ import { DisqualifyingBanner } from './DisqualifyingBanner';
 
 export interface MultiQuestionStageProps {
   questions: QuestionDef[];
-  pageTitle: string;
-  pageNumber: number; // 1-based, across the whole survey -- the first of this page's questions
+  // Omitted when the page's own SurveyPage.showTitle is off (the default) --
+  // see that field's own comment.
+  pageTitle?: string;
   answers: Record<string, unknown>;
   onChangeQuestion: (questionId: string, value: unknown) => void;
   onAdvance: () => void;
@@ -32,7 +33,6 @@ export interface MultiQuestionStageProps {
 export function MultiQuestionStage({
   questions,
   pageTitle,
-  pageNumber,
   answers,
   onChangeQuestion,
   onAdvance,
@@ -65,15 +65,11 @@ export function MultiQuestionStage({
         '@keyframes sbkRunnerFadeIn': { from: { opacity: 0 }, to: { opacity: 1 } },
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-        <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: 15 }}>
-          {String(pageNumber).padStart(2, '0')}
+      {pageTitle && (
+        <Typography sx={{ fontSize: { xs: 26, sm: 34 }, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2, mb: 4 }}>
+          {pageTitle}
         </Typography>
-      </Stack>
-
-      <Typography sx={{ fontSize: { xs: 26, sm: 34 }, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.2, mb: 4 }}>
-        {pageTitle}
-      </Typography>
+      )}
 
       <Stack spacing={4}>
         {questions.map((question) => {

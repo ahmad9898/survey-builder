@@ -11,7 +11,6 @@ export type StageDirection = 'forward' | 'backward';
 
 export interface QuestionStageProps {
   question: QuestionDef;
-  questionNumber: number; // 1-based, across the whole survey
   categoryLabel?: string;
   value: unknown;
   onChange: (value: unknown) => void;
@@ -28,7 +27,6 @@ export interface QuestionStageProps {
 
 export function QuestionStage({
   question,
-  questionNumber,
   categoryLabel,
   value,
   onChange,
@@ -72,19 +70,11 @@ export function QuestionStage({
         },
       }}
     >
-      {!isInformational && (
+      {!isInformational && categoryLabel && (
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-          <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: 15 }}>
-            {String(questionNumber).padStart(2, '0')}
+          <Typography variant="body2" color="text.secondary">
+            {categoryLabel}
           </Typography>
-          {categoryLabel && (
-            <>
-              <Box sx={{ width: 20, height: 1, bgcolor: 'divider' }} />
-              <Typography variant="body2" color="text.secondary">
-                {categoryLabel}
-              </Typography>
-            </>
-          )}
         </Stack>
       )}
 

@@ -357,6 +357,20 @@ A few things worth calling out that aren't obvious from the types alone:
     "goToPageId": "end"
   }
   ```
+- `SurveyPage.showTitle` controls whether `SurveyPage.title` is shown to the
+  respondent in `<SurveyRunner>` -- as the small caption above a
+  single-question page's own question text, or as the page-level heading
+  above a multi-question page's stacked questions. Omitted/`false` (the
+  default) hides it -- most page titles are Builder-only organizational
+  labels (e.g. "Page 1"), not respondent-facing copy, so showing one is
+  something the author opts into per page via a checkbox on the Builder's
+  page canvas ("Show this page's title to respondents"), not something
+  shown everywhere by default. Never affects the Builder's own canvas,
+  sidebar, or flow map, which always show `title` regardless:
+
+  ```json
+  { "id": "page_dob", "title": "Date of Birth", "showTitle": true, "questions": [ /* ... */ ] }
+  ```
 - `QuestionDef.descriptionColor` is a CSS color applied to `description`'s
   own text wherever `<SurveyRunner>` renders it -- the Builder's settings
   panel shows a color picker right under the Description/Body text field

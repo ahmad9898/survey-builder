@@ -219,8 +219,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
         ) : isMultiQuestion ? (
           <MultiQuestionStage
             questions={visibleQuestions}
-            pageTitle={currentPage.title}
-            pageNumber={progress.currentStep}
+            pageTitle={currentPage.showTitle ? currentPage.title : undefined}
             answers={answers}
             onChangeQuestion={(id, value) => setAnswers({ ...answers, [id]: value })}
             onAdvance={handleAdvance}
@@ -234,8 +233,7 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
         ) : (
           <QuestionStage
             question={singleQuestion}
-            questionNumber={progress.currentStep}
-            categoryLabel={currentPage.title}
+            categoryLabel={currentPage.showTitle ? currentPage.title : undefined}
             value={answers[singleQuestion.id]}
             onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
             onAdvance={handleAdvance}

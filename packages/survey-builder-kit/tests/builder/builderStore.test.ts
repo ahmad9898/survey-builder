@@ -368,6 +368,33 @@ describe('setPageBlocksSubmission', () => {
   });
 });
 
+describe('setPageShowTitle', () => {
+  it('defaults to falsy (hidden) on a freshly-created page', () => {
+    const [pageId] = pageIds();
+    expect(useBuilderStore.getState().survey.pages.find((p) => p.id === pageId)!.showTitle).toBeFalsy();
+  });
+
+  it('sets the flag on only the target page', () => {
+    useBuilderStore.getState().addPage();
+    const [firstId, secondId] = pageIds();
+
+    useBuilderStore.getState().setPageShowTitle(secondId, true);
+
+    const pages = useBuilderStore.getState().survey.pages;
+    expect(pages.find((p) => p.id === firstId)!.showTitle).toBeFalsy();
+    expect(pages.find((p) => p.id === secondId)!.showTitle).toBe(true);
+  });
+
+  it('can be turned back off', () => {
+    const [pageId] = pageIds();
+    useBuilderStore.getState().setPageShowTitle(pageId, true);
+    expect(useBuilderStore.getState().survey.pages[0].showTitle).toBe(true);
+
+    useBuilderStore.getState().setPageShowTitle(pageId, false);
+    expect(useBuilderStore.getState().survey.pages[0].showTitle).toBe(false);
+  });
+});
+
 describe('finalizeQuestionId', () => {
   it('sets slug === id right from creation, before any title is typed', () => {
     const [pageId] = pageIds();

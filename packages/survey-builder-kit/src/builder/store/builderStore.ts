@@ -73,6 +73,9 @@ export interface BuilderState {
   selectPage: (pageId: string) => void;
   clearSelectedPage: () => void;
   setPageTitle: (pageId: string, title: string) => void;
+  // Whether this page's title is shown to the respondent in <SurveyRunner>
+  // -- see SurveyPage.showTitle's own comment.
+  setPageShowTitle: (pageId: string, showTitle: boolean) => void;
   setPageBlocksSubmission: (pageId: string, blocksSubmission: boolean) => void;
   setDefaultNextPage: (pageId: string, nextPageId: string | 'end') => void;
   setBranchRules: (pageId: string, branch: SurveyPage['branch']) => void;
@@ -339,6 +342,15 @@ export function createBuilderStore(deps: BuilderStoreDeps, initialSurvey: Survey
           ...s.survey,
           updatedAt: new Date().toISOString(),
           pages: s.survey.pages.map((p) => (p.id === pageId ? { ...p, title } : p)),
+        },
+      })),
+
+    setPageShowTitle: (pageId, showTitle) =>
+      set((s) => ({
+        survey: {
+          ...s.survey,
+          updatedAt: new Date().toISOString(),
+          pages: s.survey.pages.map((p) => (p.id === pageId ? { ...p, showTitle } : p)),
         },
       })),
 
