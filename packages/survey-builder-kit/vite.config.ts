@@ -60,7 +60,13 @@ export default defineConfig({
     sourcemap: true,
   },
   test: {
+    // Pure-logic tests (the vast majority) need no DOM at all, so the
+    // default stays 'node' -- fast, and the right environment for verifying
+    // no-`document`-access-during-render behavior (see the portal target
+    // tests). A handful of component-level tests need a real DOM to portal
+    // into; those opt in per-file with a `// @vitest-environment jsdom`
+    // docblock rather than flipping this default for every test.
     environment: 'node',
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
   },
 });

@@ -4,6 +4,7 @@ import { PlayerPage } from './pages/PlayerPage';
 import { BuilderPage } from './pages/BuilderPage';
 import { ViewerPage } from './pages/ViewerPage';
 import { VerifyHarnessPage } from './pages/VerifyHarnessPage';
+import { CustomChromePlayerPage } from './pages/CustomChromePlayerPage';
 
 function App() {
   return (
@@ -15,6 +16,8 @@ function App() {
         <Route path="/viewer" element={<ViewerPage />} />
         {/* TEMPORARY -- see VerifyHarnessPage.tsx's own comment. */}
         <Route path="/verify-harness" element={<VerifyHarnessPage />} />
+        {/* Demo of SurveyRunnerProps' render*To props -- see CustomChromePlayerPage.tsx's own comment. */}
+        <Route path="/custom-chrome" element={<CustomChromePlayerPage />} />
       </Routes>
     </BrowserRouter>
   );

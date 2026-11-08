@@ -150,6 +150,11 @@ export function HomePage() {
           survey-builder-kit JSON round-trip harness (temporary)
         </Link>
       </Typography>
+      <Typography variant="body2" sx={{ mt: 1 }}>
+        <Link component={RouterLink} to="/custom-chrome">
+          render*To demo -- progress bar / steps / Exit in a custom page layout
+        </Link>
+      </Typography>
     </Box>
   );
 }

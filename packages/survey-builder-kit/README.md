@@ -195,6 +195,10 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 | `bgColor`        | `string`                                     | No       | --                                                                        |
 | `primaryColor`   | `string`                                     | No       | --                                                                        |
 | `serviceSku`     | `string`                                     | No       | --                                                                        |
+| `renderAssessmentTo`  | `string \| HTMLElement \| null`         | No       | --                                                                        |
+| `renderProgressBarTo` | `string \| HTMLElement \| null`         | No       | --                                                                        |
+| `renderStepsTo`       | `string \| HTMLElement \| null`         | No       | --                                                                        |
+| `renderExitTo`        | `string \| HTMLElement \| null`         | No       | --                                                                        |
 
 `renderAssessment(props)` is also exported -- an element-factory wrapper
 around `<SurveyRunner>` taking the exact same props, for call sites that
@@ -227,7 +231,9 @@ function TakeSurvey({ survey }: { survey: Survey }) {
 It's purely `return <SurveyRunner {...props} />;` -- the returned element
 still has to be rendered by React as usual, so this isn't a way to use
 `<SurveyRunner>` outside of React; it's just the same component, called as a
-function instead of written as JSX.
+function instead of written as JSX. The four `render*To` props below work
+identically here -- `renderAssessment` takes "the exact same props" literally,
+not a subset.
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
   later changes) -- use it to resume a partially-answered survey. Each
@@ -295,6 +301,61 @@ function instead of written as JSX.
   identifier (e.g. which SKU/plan it belongs to) without this library
   needing to know what it means. Omitted from `response` entirely when not
   passed.
+- `renderAssessmentTo`/`renderProgressBarTo`/`renderStepsTo`/`renderExitTo`
+  let a host decide where each of four pieces renders on the page, or hide
+  it, instead of always rendering it in the runner's own built-in layout --
+  the quiz body itself (`renderAssessmentTo`), the thin progress bar
+  (`renderProgressBarTo`), the "X of N" step counter + dots
+  (`renderStepsTo`), and the Exit link (`renderExitTo`). All four share the
+  same `PortalTarget` type (`string | HTMLElement | null`):
+  - **A CSS selector string, or an `HTMLElement`**: the piece is portaled
+    there via `createPortal` -- a real React portal, not a second render
+    root, so the portaled piece still shares this one runner instance's
+    state, MUI theme (including `primaryColor`), and Emotion cache. Moving
+    to the next/previous page updates it automatically, the same as
+    anything else in the component tree. A selector is resolved with
+    `document.querySelector` **on the client only**, inside an effect that
+    runs after mount (never during render) -- so importing/rendering this
+    library on the server stays exactly as safe as the "Client-only -- no
+    SSR" section above already promises. If a selector matches nothing,
+    `console.warn` names the prop and the selector, and nothing renders for
+    that piece at all.
+  - **`null` or `""`**: the piece doesn't render anywhere.
+  - **Omit the prop** (`undefined`): **only `renderAssessmentTo` treats this
+    as "built-in and visible"** -- the quiz body keeps rendering in its
+    built-in spot, 100% backward-compatible, so a survey stays usable with
+    zero config. `renderProgressBarTo`/`renderStepsTo`/`renderExitTo` go the
+    other way: omitting any of them behaves exactly like passing `null` --
+    **hidden by default**. There's no way to get that piece back in a
+    built-in spot; pass a real selector/`HTMLElement` to see it at all.
+
+  A portaled piece is wrapped in its own `<div>` carrying `bgColor` (if set)
+  plus a stable, library-owned class name -- `sbk-assessment`,
+  `sbk-progress-bar`, `sbk-steps`, `sbk-exit` -- so host CSS can theme or
+  position each one specifically, the same way `bgColor` already themes the
+  runner's own root. The built-in, non-portaled rendering of the quiz body
+  never carries this class -- it only exists to label a piece once it's
+  living outside the runner's own DOM subtree.
+
+  `renderExitTo` only has any effect when `exitPath` is also set -- with no
+  `exitPath`, Exit stays hidden regardless of this prop, same as always; its
+  selector isn't even looked up in that case. The header's right-hand side
+  (where the step counter and Exit link used to live) never renders any more
+  -- the left-hand side (the Back button and survey title, which have no
+  `render*To` prop of their own) is all that's left of the built-in header,
+  and it renders regardless, since there's currently no way to move or hide
+  those two:
+
+  ```tsx
+  renderAssessment({
+    survey,
+    exitPath: '/',
+    renderProgressBarTo: '#progress-bar', // without this, no progress bar at all
+    renderStepsTo: '.my-steps', // without this, no step counter at all
+    renderExitTo: '#exit-slot', // without this, no Exit link at all
+    // renderAssessmentTo omitted -> quiz body still renders, in its built-in spot
+  });
+  ```
 - Like `<SurveyBuilder>`, `survey` is validated on mount/swap, with a plain
   error screen on a shape mismatch instead of a crash.
 - `onSubmit`'s `response` is a full `SurveyResponse` -- not just the raw

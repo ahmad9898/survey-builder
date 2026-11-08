@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Box } from '@mui/material';
 import { usePlayerStore, usePlayerStoreApi } from '../../store/playerStore';
 import { resolveNextPage, isPageBlockedByRule } from '../../../domain/branchingEngine';
@@ -6,12 +7,14 @@ import { evaluateConditionGroup } from '../../../domain/conditionEvaluator';
 import { estimateProgress } from '../../../domain/flowLayout';
 import { formatAnswerDisplay } from '../../../domain/answerFormatting';
 import type { QuestionDef } from '../../../types/survey';
+import type { PortalTarget } from '../../../SurveyRunner';
 import { ProgressRail } from './ProgressRail';
 import { RunnerHeader } from './RunnerHeader';
 import { QuestionStage, type StageDirection } from './QuestionStage';
 import { MultiQuestionStage } from './MultiQuestionStage';
 import { ReviewScreen, type ReviewItem } from './ReviewScreen';
 import { validateQuestion, canAttemptAdvance, getDisqualifyingNotices } from './questionValidation';
+import { usePortalTarget, portalWrapperClassName } from './usePortalTarget';
 
 // `predefinedQuestionIds` hides a question the same way a visibilityRule
 // does, but it's host-driven (SurveyRunnerProps.predefinedAnswers) rather
@@ -31,12 +34,43 @@ function visibleQuestionsOf(
   return questions.filter((q) => isVisible(q, answers, predefinedQuestionIds));
 }
 
+export interface RunnerShellProps {
+  exitPath?: string;
+  bgColor?: string;
+  renderAssessmentTo?: PortalTarget;
+  renderProgressBarTo?: PortalTarget;
+  renderStepsTo?: PortalTarget;
+  renderExitTo?: PortalTarget;
+}
+
 // The runner's atomic step is a PAGE: a page with exactly one visible
 // question gets the full-screen single-question treatment (QuestionStage);
 // a page with more than one shows them all together on one screen
 // (MultiQuestionStage) rather than splitting fields that belong together
 // (e.g. "Weight & Height") into separate steps.
-export function RunnerShell({ exitPath }: { exitPath?: string }) {
+export function RunnerShell({
+  exitPath,
+  bgColor,
+  renderAssessmentTo,
+  renderProgressBarTo,
+  renderStepsTo,
+  renderExitTo,
+}: RunnerShellProps) {
+  // Unlike `renderAssessmentTo` below, these three default to HIDDEN, not
+  // built-in, when omitted -- `?? null` coerces the omitted (`undefined`)
+  // case to the same "don't render this piece anywhere" input `null` already
+  // means, so a host sees no progress bar/step counter/Exit link at all
+  // unless it explicitly points one at a target. The quiz body itself keeps
+  // the opposite default (shown built-in) so a survey is still usable with
+  // zero `render*To` config.
+  const progressBarTarget = usePortalTarget('renderProgressBarTo', renderProgressBarTo ?? null);
+  const stepsTarget = usePortalTarget('renderStepsTo', renderStepsTo ?? null);
+  // `renderExitTo` only matters when `exitPath` is set at all -- forced to
+  // `null` (hidden, no selector lookup, no warning) otherwise, same as
+  // omitting it.
+  const exitTarget = usePortalTarget('renderExitTo', exitPath ? (renderExitTo ?? null) : null);
+  const assessmentTarget = usePortalTarget('renderAssessmentTo', renderAssessmentTo);
+
   const survey = usePlayerStore((s) => s.survey);
   const currentPageId = usePlayerStore((s) => s.currentPageId);
   const answers = usePlayerStore((s) => s.answers);
@@ -193,13 +227,65 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
 
   const liveMessage = errorMessage ?? (reviewing ? 'Review your answers' : `Question ${progress.currentStep} of ${progress.totalSteps}`);
 
+  const bodyContent = reviewing ? (
+    <ReviewScreen items={reviewItems} onEdit={handleEdit} onSubmit={() => goNext()} />
+  ) : isMultiQuestion ? (
+    <MultiQuestionStage
+      questions={visibleQuestions}
+      pageTitle={currentPage.showTitle ? currentPage.title : undefined}
+      answers={answers}
+      onChangeQuestion={(id, value) => setAnswers({ ...answers, [id]: value })}
+      onAdvance={handleAdvance}
+      onBack={handleBack}
+      canGoBack={canGoBack}
+      canAttemptAdvance={!submissionBlocked && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))}
+      isFinalPage={isFinalPage}
+      errors={fieldErrors}
+      direction={direction}
+    />
+  ) : (
+    <QuestionStage
+      question={singleQuestion}
+      categoryLabel={currentPage.showTitle ? currentPage.title : undefined}
+      value={answers[singleQuestion.id]}
+      onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
+      onAdvance={handleAdvance}
+      onBack={handleBack}
+      onSkip={handleSkip}
+      canGoBack={canGoBack}
+      canSkip={canSkip}
+      canAttemptAdvance={!submissionBlocked && canAttemptAdvance(singleQuestion, answers[singleQuestion.id])}
+      isFinalQuestion={isFinalPage}
+      error={errorMessage}
+      direction={direction}
+    />
+  );
+  // The same wrapper Box the body has always rendered in (scroll/centering/
+  // padding) -- portaled wholesale when `renderAssessmentTo` moves it, so it
+  // looks identical wherever it ends up (see SurveyRunnerProps.
+  // renderAssessmentTo's own comment: this is a placement change only).
+  const bodyBox = (
+    <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', px: 3, py: 4 }}>
+      {bodyContent}
+    </Box>
+  );
+
   return (
     // No bgcolor here deliberately: RunnerHeader paints its own opaque
     // background, but the question/review area below doesn't -- so a
     // host's bgColor background (see SurveyRunner.tsx) shows through there
     // instead of being hidden under a second, redundant opaque layer.
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <ProgressRail percent={(progress.currentStep / Math.max(1, progress.totalSteps)) * 100} />
+      {/* No built-in spot for this any more -- hidden unless renderProgressBarTo
+          points at a real target (see RunnerShell's own comment on why this
+          one defaults to hidden, unlike the quiz body below). */}
+      {progressBarTarget &&
+        createPortal(
+          <div className={portalWrapperClassName(bgColor, 'sbk-progress-bar')}>
+            <ProgressRail percent={(progress.currentStep / Math.max(1, progress.totalSteps)) * 100} />
+          </div>,
+          progressBarTarget,
+        )}
       <RunnerHeader
         surveyTitle={survey.title}
         currentStep={progress.currentStep}
@@ -212,42 +298,13 @@ export function RunnerShell({ exitPath }: { exitPath?: string }) {
         // host-agnostic way to leave. Fine for a same-origin SPA route too,
         // just not as seamless as that host's own client-side navigation.
         onExit={exitPath ? () => window.location.assign(exitPath) : undefined}
+        stepsTarget={stepsTarget}
+        exitTarget={exitTarget}
+        bgColor={bgColor}
       />
-      <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', alignItems: 'center', px: 3, py: 4 }}>
-        {reviewing ? (
-          <ReviewScreen items={reviewItems} onEdit={handleEdit} onSubmit={() => goNext()} />
-        ) : isMultiQuestion ? (
-          <MultiQuestionStage
-            questions={visibleQuestions}
-            pageTitle={currentPage.showTitle ? currentPage.title : undefined}
-            answers={answers}
-            onChangeQuestion={(id, value) => setAnswers({ ...answers, [id]: value })}
-            onAdvance={handleAdvance}
-            onBack={handleBack}
-            canGoBack={canGoBack}
-            canAttemptAdvance={!submissionBlocked && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))}
-            isFinalPage={isFinalPage}
-            errors={fieldErrors}
-            direction={direction}
-          />
-        ) : (
-          <QuestionStage
-            question={singleQuestion}
-            categoryLabel={currentPage.showTitle ? currentPage.title : undefined}
-            value={answers[singleQuestion.id]}
-            onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
-            onAdvance={handleAdvance}
-            onBack={handleBack}
-            onSkip={handleSkip}
-            canGoBack={canGoBack}
-            canSkip={canSkip}
-            canAttemptAdvance={!submissionBlocked && canAttemptAdvance(singleQuestion, answers[singleQuestion.id])}
-            isFinalQuestion={isFinalPage}
-            error={errorMessage}
-            direction={direction}
-          />
-        )}
-      </Box>
+      {assessmentTarget === undefined && bodyBox}
+      {assessmentTarget &&
+        createPortal(<div className={portalWrapperClassName(bgColor, 'sbk-assessment')}>{bodyBox}</div>, assessmentTarget)}
       <Box role="status" aria-live="polite" sx={visuallyHidden}>
         {liveMessage}
       </Box>

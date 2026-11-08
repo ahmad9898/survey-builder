@@ -71,15 +71,29 @@ export function PlayerPage() {
   }
 
   return (
-    <Box sx={{ flex: 1, minHeight: 0 }}>
-      {renderAssessment({
-        survey,
-        onSubmit: handleSubmit,
-        onAnswer: assessmentCallback,
-        exitPath: '/',
-        bgColor: 'color-black',
-        primaryColor: '#e11d48',
-      })}
+    <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      {/* survey-builder-kit's progress bar/step counter/Exit link all default
+          to hidden now (see SurveyRunnerProps.renderProgressBarTo's own
+          comment) -- these three empty slots are where they portal into,
+          restoring the look this page had before that default changed. */}
+      <Box id="player-progress-bar" />
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2, px: 2, py: 1 }}>
+        <Box id="player-steps" />
+        <Box id="player-exit" />
+      </Box>
+      <Box sx={{ flex: 1, minHeight: 0 }}>
+        {renderAssessment({
+          survey,
+          onSubmit: handleSubmit,
+          onAnswer: assessmentCallback,
+          exitPath: '/',
+          bgColor: 'color-black',
+          primaryColor: '#e11d48',
+          renderProgressBarTo: '#player-progress-bar',
+          renderStepsTo: '#player-steps',
+          renderExitTo: '#player-exit',
+        })}
+      </Box>
     </Box>
   );
 }

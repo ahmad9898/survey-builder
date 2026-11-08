@@ -18,6 +18,29 @@ import { buildResponsePayload } from './domain/responsePayload';
 import { newId } from './lib/id';
 import { SurveyValidationError } from './components/SurveyValidationError';
 
+/**
+ * Where one piece of the runner's UI renders -- shared by the four
+ * `render*To` props below. A string is a CSS selector, resolved with
+ * `document.querySelector` on the client only (never during render, so
+ * importing/rendering this library on the server stays safe -- see the
+ * README's SSR note); an `HTMLElement` is used directly, no lookup needed.
+ *
+ * - A selector string or `HTMLElement`: the piece is portaled there (via
+ *   `createPortal`, not a separate React root -- it still shares this
+ *   runner's state/theme/Emotion cache, so advancing a page updates it like
+ *   anything else in the tree). If a selector matches nothing, a `console.warn`
+ *   names the prop and the selector, and nothing renders for that piece.
+ * - `null` or `""`: the piece doesn't render anywhere.
+ * - Omit the prop entirely (`undefined`): see each prop's own doc comment --
+ *   `renderAssessmentTo` keeps rendering the quiz body in its built-in spot
+ *   (100% backward-compatible, so a survey is still usable with zero config);
+ *   the other three (`renderProgressBarTo`/`renderStepsTo`/`renderExitTo`)
+ *   are hidden by default, the same as passing `null` -- there's no way to
+ *   get that chrome back in its old built-in spot, only by portaling it
+ *   somewhere with a real target.
+ */
+export type PortalTarget = string | HTMLElement | null;
+
 export interface SurveyRunnerProps {
   /** The survey to present to a respondent. */
   survey: Survey;
@@ -125,6 +148,36 @@ export interface SurveyRunnerProps {
    * library needing to know what it means.
    */
   serviceSku?: string;
+  /**
+   * Where the quiz body (whichever question stage, or the end-of-survey
+   * review screen, is currently showing) renders -- see `PortalTarget`'s
+   * own comment for the shared undefined/target/null semantics. Omit this
+   * to keep it in its built-in spot, between the header and the bottom of
+   * the runner, exactly as today.
+   */
+  renderAssessmentTo?: PortalTarget;
+  /**
+   * Where the thin progress bar renders -- see `PortalTarget`'s own
+   * comment. Unlike `renderAssessmentTo` above, this one has no built-in
+   * spot to fall back to: it's HIDDEN by default (omitting this prop behaves
+   * exactly like passing `null`), not shown pinned to the runner's top edge
+   * -- pass a selector/`HTMLElement` to see it at all.
+   */
+  renderProgressBarTo?: PortalTarget;
+  /**
+   * Where the "X of N" step counter + dots render -- see `PortalTarget`'s
+   * own comment. HIDDEN by default, same as `renderProgressBarTo` above --
+   * omitting this prop behaves exactly like passing `null`, not "shown in
+   * the built-in header." Pass a selector/`HTMLElement` to see it at all.
+   */
+  renderStepsTo?: PortalTarget;
+  /**
+   * Where the "Exit" link renders -- see `PortalTarget`'s own comment.
+   * HIDDEN by default, same as `renderProgressBarTo`/`renderStepsTo` above.
+   * Also only matters when `exitPath` is set at all; with no `exitPath`,
+   * Exit stays hidden regardless of this prop, same as today.
+   */
+  renderExitTo?: PortalTarget;
 }
 
 // One Emotion cache per component, keyed distinctly from SurveyBuilder's --
@@ -180,7 +233,12 @@ function SurveyRunnerInner({
   onAnswer,
   onSubmit,
   exitPath,
+  bgColor,
   serviceSku,
+  renderAssessmentTo,
+  renderProgressBarTo,
+  renderStepsTo,
+  renderExitTo,
 }: SurveyRunnerProps) {
   const playerSurvey = usePlayerStore((s) => s.survey);
   const answers = usePlayerStore((s) => s.answers);
@@ -358,7 +416,18 @@ function SurveyRunnerInner({
   }, [finished]);
 
   if (!playerSurvey) return null;
-  return finished ? <SubmittedScreen /> : <RunnerShell exitPath={exitPath} />;
+  return finished ? (
+    <SubmittedScreen />
+  ) : (
+    <RunnerShell
+      exitPath={exitPath}
+      bgColor={bgColor}
+      renderAssessmentTo={renderAssessmentTo}
+      renderProgressBarTo={renderProgressBarTo}
+      renderStepsTo={renderStepsTo}
+      renderExitTo={renderExitTo}
+    />
+  );
 }
 
 /**
