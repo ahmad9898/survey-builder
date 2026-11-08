@@ -88,26 +88,18 @@ export function CustomChromePlayerPage() {
         </Paper>
       </Stack>
 
-      <Box sx={{ px: 3, pb: 3 }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-          Below: &lt;SurveyRunner&gt;'s own root. The Back button and survey
-          title have no `render*To` prop of their own, so they always render
-          wherever the component itself is mounted -- everything else about
-          this instance (progress bar, steps, Exit, quiz body) is portaled
-          into the slots above.
-        </Typography>
-        <Paper variant="outlined" sx={{ maxWidth: 420 }}>
-          {/* <SurveyRunner>'s own root element has to render SOMEWHERE --
-              declared here, full-width enough that its title doesn't wrap
-              awkwardly, rather than cramped into the narrow sidebar. */}
-          {renderAssessment({
-            survey,
-            exitPath: '/',
-            renderProgressBarTo: '#custom-progress-slot',
-
-          })}
-        </Paper>
-      </Box>
+      {/* <SurveyRunner> has no built-in header bar any more -- there's
+          nothing left for its own root element to render in place once
+          every piece below is portaled into one of the slots above, so
+          where this call sits in the JSX doesn't matter. */}
+      {renderAssessment({
+        survey,
+        exitPath: '/',
+        renderProgressBarTo: '#custom-progress-slot',
+        renderStepsTo: hideSteps ? null : '#custom-steps-slot',
+        renderExitTo: hideExit ? null : '#custom-exit-slot',
+        renderAssessmentTo: '#custom-assessment-slot',
+      })}
     </Box>
   );
 }

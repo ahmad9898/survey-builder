@@ -40,9 +40,9 @@ describe('default behavior (render*To props omitted)', () => {
     expect(screen.queryByText('1 of 2')).not.toBeInTheDocument();
     expect(screen.queryByText('Exit')).not.toBeInTheDocument();
     expect(container.querySelector('.sbk-progress-bar')).not.toBeInTheDocument();
-    // The Back button + survey title have no render*To prop of their own,
-    // so they're unaffected either way.
-    expect(screen.getByText('Test survey')).toBeInTheDocument();
+    // The header (Back button + survey title) was deleted outright -- it
+    // never renders, regardless of any render*To prop.
+    expect(screen.queryByText('Test survey')).not.toBeInTheDocument();
   });
 
   it('renderAssessment (the element-factory wrapper) behaves identically', () => {
@@ -95,15 +95,15 @@ describe('hiding a piece with null', () => {
     expect(screen.queryByText('Exit')).not.toBeInTheDocument();
   });
 
-  it('drops the now-empty header right-hand side entirely when steps AND exit are both hidden', () => {
+  it('renders no header chrome at all when steps AND exit are both hidden -- the quiz body is unaffected', () => {
     const { container } = render(
       <SurveyRunner survey={buildTwoPageSurvey()} exitPath="/" renderStepsTo={null} renderExitTo={null} />,
     );
-    // The survey title (left side) still renders -- only the right side (steps/exit) disappears.
-    expect(screen.getByText('Test survey')).toBeInTheDocument();
+    expect(screen.queryByText('Test survey')).not.toBeInTheDocument();
     expect(screen.queryByText('1 of 2')).not.toBeInTheDocument();
     expect(screen.queryByText('Exit')).not.toBeInTheDocument();
     expect(container.querySelector('.MuiDivider-vertical')).not.toBeInTheDocument();
+    expect(screen.getByText('Question 1')).toBeInTheDocument();
   });
 
   it('renderExitTo is irrelevant with no exitPath -- Exit stays hidden, and the selector is never even looked up', () => {

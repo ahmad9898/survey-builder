@@ -1,17 +1,12 @@
 import { createPortal } from 'react-dom';
-import { Box, IconButton, Link, Stack, Typography } from '@mui/material';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import CheckIcon from '@mui/icons-material/Check';
+import { Box, Link, Stack, Typography } from '@mui/material';
 import { portalWrapperClassName, type ResolvedPortalTarget } from './usePortalTarget';
 
 const MAX_DOTS = 8;
 
 export interface RunnerHeaderProps {
-  surveyTitle: string;
   currentStep: number;
   totalSteps: number;
-  canGoBack: boolean;
-  onBack: () => void;
   /** Shown as the "Exit" link in the header, only when provided -- see SurveyRunnerProps.exitPath, which is what actually supplies this. */
   onExit?: () => void;
   /**
@@ -28,22 +23,14 @@ export interface RunnerHeaderProps {
   bgColor?: string;
 }
 
-// The step counter + dots and the Exit link have no built-in spot in this
-// header any more -- both default to hidden (see RunnerShell), and the only
-// way to see either is to portal it somewhere via renderStepsTo/renderExitTo.
-// All this header still renders unconditionally, on its own, is the Back
-// button + survey title (neither has a `render*To` prop of its own).
-export function RunnerHeader({
-  surveyTitle,
-  currentStep,
-  totalSteps,
-  canGoBack,
-  onBack,
-  onExit,
-  stepsTarget,
-  exitTarget,
-  bgColor,
-}: RunnerHeaderProps) {
+// No built-in header bar any more -- the Back button + survey title that
+// used to live here were deleted outright (not just hidden behind a prop).
+// Back-navigation is still available per-question, via QuestionStage/
+// MultiQuestionStage's own Back button. The step counter + dots and the
+// Exit link still have no built-in spot of their own either (see
+// RunnerShell) -- the only way to see either is to portal it somewhere via
+// renderStepsTo/renderExitTo.
+export function RunnerHeader({ currentStep, totalSteps, onExit, stepsTarget, exitTarget, bgColor }: RunnerHeaderProps) {
   const dotCount = Math.min(totalSteps, MAX_DOTS);
 
   const stepsContent = (
@@ -79,38 +66,12 @@ export function RunnerHeader({
   ) : null;
 
   return (
-    <Stack
-      direction="row"
-      alignItems="center"
-      justifyContent="space-between"
-      sx={{ height: 64, px: { xs: 2, sm: 4 }, borderBottom: '1px solid', borderColor: 'divider' }}
-    >
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <IconButton onClick={onBack} disabled={!canGoBack} size="small" aria-label="Back to previous question">
-          <ChevronLeftIcon />
-        </IconButton>
-        <Box
-          sx={{
-            width: 28,
-            height: 28,
-            borderRadius: '8px',
-            bgcolor: 'primary.main',
-            color: 'primary.contrastText',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <CheckIcon sx={{ fontSize: 16 }} />
-        </Box>
-        <Typography sx={{ fontWeight: 700, fontSize: 15 }}>{surveyTitle}</Typography>
-      </Stack>
-
+    <>
       {stepsTarget &&
         createPortal(<div className={portalWrapperClassName(bgColor, 'sbk-steps')}>{stepsContent}</div>, stepsTarget)}
       {exitContent &&
         exitTarget &&
         createPortal(<div className={portalWrapperClassName(bgColor, 'sbk-exit')}>{exitContent}</div>, exitTarget)}
-    </Stack>
+    </>
   );
 }

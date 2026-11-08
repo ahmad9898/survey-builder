@@ -287,11 +287,8 @@ export function RunnerShell({
           progressBarTarget,
         )}
       <RunnerHeader
-        surveyTitle={survey.title}
         currentStep={progress.currentStep}
         totalSteps={progress.totalSteps}
-        canGoBack={reviewing || canGoBack}
-        onBack={handleBack}
         // A full browser navigation, not a client-side route change -- this
         // library has no router of its own (and can't depend on one; see
         // SurveyRunnerProps.exitPath's own comment), so this is the only

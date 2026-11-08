@@ -278,10 +278,12 @@ not a subset.
   ```tsx
   <SurveyRunner survey={survey} onAnswer={(response, submitted) => track(response, submitted)} />
   ```
-- `exitPath`, if given, shows an "Exit" link in the header; clicking it does
-  a full `window.location` navigation to that path/URL (not client-side
-  routing -- this library has no router of its own, and can't depend on
-  one). Omit it to hide the link entirely.
+- `exitPath`, if given, makes an "Exit" link available (see
+  `renderExitTo` -- it has no built-in spot of its own, so a target is
+  required to actually see it); clicking it does a full `window.location`
+  navigation to that path/URL (not client-side routing -- this library has
+  no router of its own, and can't depend on one). Omit `exitPath` to make
+  Exit unavailable entirely, regardless of `renderExitTo`.
 - `bgColor` works exactly like `<SurveyBuilder>`'s own -- added to this
   component's root element's `className` only (not a literal color value),
   so your own CSS can theme one mounted instance (`.acme-blue-theme { ...
@@ -339,12 +341,10 @@ not a subset.
 
   `renderExitTo` only has any effect when `exitPath` is also set -- with no
   `exitPath`, Exit stays hidden regardless of this prop, same as always; its
-  selector isn't even looked up in that case. The header's right-hand side
-  (where the step counter and Exit link used to live) never renders any more
-  -- the left-hand side (the Back button and survey title, which have no
-  `render*To` prop of their own) is all that's left of the built-in header,
-  and it renders regardless, since there's currently no way to move or hide
-  those two:
+  selector isn't even looked up in that case. There's no built-in header bar
+  at all any more -- the Back button + survey title that used to live there
+  were removed outright, not just hidden behind a prop; back-navigation is
+  still available per-question, via each question stage's own Back button:
 
   ```tsx
   renderAssessment({
