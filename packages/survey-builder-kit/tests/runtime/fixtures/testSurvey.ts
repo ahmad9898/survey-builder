@@ -33,3 +33,31 @@ export function buildTwoPageSurvey(): Survey {
     pages: [page1, page2],
   };
 }
+
+// A single-question page (required) followed by a two-question page (both
+// required) -- enough to drive a real inline validation error on both the
+// QuestionStage and MultiQuestionStage paths, for asserting it clears as
+// soon as the respondent fixes it, without a second Continue click.
+export function buildValidationSurvey(): Survey {
+  const page1 = buildPage(
+    'page1',
+    'Page 1',
+    [{ id: 'q1', slug: 'q1', title: 'Question 1', type: 'shortText', label: 'Question 1', required: true }],
+    'page2',
+  );
+  const page2 = buildPage('page2', 'Page 2', [
+    { id: 'q2', slug: 'q2', title: 'Question 2', type: 'shortText', label: 'Question 2', required: true },
+    { id: 'q3', slug: 'q3', title: 'Question 3', type: 'shortText', label: 'Question 3', required: true },
+  ]);
+
+  return {
+    id: 'survey_validation',
+    title: 'Validation survey',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    startPageId: page1.id,
+    pages: [page1, page2],
+  };
+}

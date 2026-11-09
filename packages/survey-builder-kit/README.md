@@ -284,6 +284,14 @@ not a subset.
   navigation to that path/URL (not client-side routing -- this library has
   no router of its own, and can't depend on one). Omit `exitPath` to make
   Exit unavailable entirely, regardless of `renderExitTo`.
+- Once the respondent has answered at least one question, refreshing, closing
+  the tab, or navigating away triggers the browser's own native "leave this
+  page?" confirmation (via `beforeunload`) -- answers only ever live in
+  memory (see "Autosave / IndexedDB" below: that's for the Builder's own
+  drafts, not a respondent's in-progress run), so a reload really does lose
+  everything. Stops warning once the survey is finished (`onSubmit` has
+  fired) or unmounted. Not configurable -- browsers also don't let a site
+  customize this prompt's wording any more, regardless.
 - `bgColor` works exactly like `<SurveyBuilder>`'s own -- added to this
   component's root element's `className` only (not a literal color value),
   so your own CSS can theme one mounted instance (`.acme-blue-theme { ...

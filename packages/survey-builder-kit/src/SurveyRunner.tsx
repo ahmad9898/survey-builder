@@ -415,6 +415,26 @@ function SurveyRunnerInner({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished]);
 
+  // Warns on refresh/close/navigating away while there's in-progress, not-
+  // yet-submitted state that would otherwise silently vanish -- this
+  // library keeps the respondent's answers in memory only (see the
+  // "Autosave / IndexedDB" README section: that's for the BUILDER's drafts,
+  // not a respondent's in-progress run), so a reload truly does lose
+  // everything. Doesn't fire on a pristine, unanswered survey (nothing to
+  // lose yet) or once `finished` (the run is already done; `onSubmit` has
+  // already fired). Browsers show their own fixed wording for this prompt --
+  // `event.returnValue` is what triggers it at all, not what it says; no
+  // browser lets a site customize that text any more.
+  useEffect(() => {
+    if (finished || Object.keys(answers).length === 0) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [finished, answers]);
+
   if (!playerSurvey) return null;
   return finished ? (
     <SubmittedScreen />

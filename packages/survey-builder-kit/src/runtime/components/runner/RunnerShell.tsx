@@ -156,6 +156,35 @@ export function RunnerShell({
     advancePastCurrentPage();
   };
 
+  // Re-validates JUST the one question that changed, against the answers it
+  // would produce, and clears its error the moment that question alone
+  // becomes valid -- not on every keystroke regardless of validity, and not
+  // by re-running every other visible question's validation too (those
+  // don't change just because a sibling field did). A still-invalid edit
+  // leaves the existing message in place rather than replacing it with a
+  // different one -- the error only updates on the next real advance
+  // attempt (handleAdvance), same as before this change.
+  const handleChangeQuestion = (questionId: string, value: unknown) => {
+    const nextAnswers = { ...answers, [questionId]: value };
+    setAnswers(nextAnswers);
+
+    const question = visibleQuestions.find((q) => q.id === questionId);
+    if (!question) return;
+
+    if (isMultiQuestion) {
+      if (!(questionId in fieldErrors)) return;
+      const stillInvalid = !canAttemptAdvance(question, value) || validateQuestion(currentPage, question, nextAnswers).length > 0;
+      if (stillInvalid) return;
+      const { [questionId]: _cleared, ...rest } = fieldErrors;
+      setFieldErrors(rest);
+      return;
+    }
+
+    if (!errorMessage) return;
+    if (validateQuestion(currentPage, question, nextAnswers).length > 0) return;
+    setErrorMessage(undefined);
+  };
+
   const handleSkip = () => {
     // canSkip (below) already hides the Skip button once there's a
     // disqualifying selection -- this mirrors that check defensively, same
@@ -234,7 +263,7 @@ export function RunnerShell({
       questions={visibleQuestions}
       pageTitle={currentPage.showTitle ? currentPage.title : undefined}
       answers={answers}
-      onChangeQuestion={(id, value) => setAnswers({ ...answers, [id]: value })}
+      onChangeQuestion={handleChangeQuestion}
       onAdvance={handleAdvance}
       onBack={handleBack}
       canGoBack={canGoBack}
@@ -248,7 +277,7 @@ export function RunnerShell({
       question={singleQuestion}
       categoryLabel={currentPage.showTitle ? currentPage.title : undefined}
       value={answers[singleQuestion.id]}
-      onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
+      onChange={(value) => handleChangeQuestion(singleQuestion.id, value)}
       onAdvance={handleAdvance}
       onBack={handleBack}
       onSkip={handleSkip}
