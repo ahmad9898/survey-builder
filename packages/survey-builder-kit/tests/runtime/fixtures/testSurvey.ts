@@ -34,6 +34,31 @@ export function buildTwoPageSurvey(): Survey {
   };
 }
 
+// Four single-question pages in a row, none required -- a plain linear
+// Continue-Continue-Continue flow with nothing else going on, matching the
+// browser Back/Forward acceptance table's own Step 1/2/3/4 example exactly.
+export function buildFourPageSurvey(): Survey {
+  const pages = [1, 2, 3, 4].map((n, i) =>
+    buildPage(
+      `page${n}`,
+      `Page ${n}`,
+      [{ id: `q${n}`, slug: `q${n}`, title: `Question ${n}`, type: 'shortText', label: `Question ${n}` }],
+      i < 3 ? `page${n + 1}` : 'end',
+    ),
+  );
+
+  return {
+    id: 'survey_four_page',
+    title: 'Four page survey',
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    startPageId: pages[0].id,
+    pages,
+  };
+}
+
 // A single-question page (required) followed by a two-question page (both
 // required) -- enough to drive a real inline validation error on both the
 // QuestionStage and MultiQuestionStage paths, for asserting it clears as

@@ -40,6 +40,16 @@ export interface PlayerState {
   setInitialAnswerQuestionIds: (ids: Set<string>) => void;
   goNext: () => void;
   goBack: () => void;
+  // Overwrites `currentPageId`/`visitedPageStack` directly, bypassing
+  // `resolveNextPage`/branch evaluation entirely -- for restoring position
+  // from a browser history entry (see RunnerShell's popstate handler),
+  // where the target is already known exactly (it's what was captured in
+  // that entry's own `history.state` when it was pushed), not something to
+  // re-derive from the current answers. `answers` is deliberately untouched
+  // -- browser history tracks WHICH STEP the respondent is on, never their
+  // answers (see SurveyRunnerProps' "beforeunload" bullet: those still only
+  // ever live in memory).
+  restoreNavigation: (currentPageId: string, visitedPageStack: string[]) => void;
   reset: () => void;
 }
 
@@ -107,6 +117,8 @@ export function createPlayerStore() {
         finished: false,
       });
     },
+
+    restoreNavigation: (currentPageId, visitedPageStack) => set({ currentPageId, visitedPageStack, finished: false }),
 
     reset: () => {
       const { survey } = get();

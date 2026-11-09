@@ -292,6 +292,23 @@ not a subset.
   everything. Stops warning once the survey is finished (`onSubmit` has
   fired) or unmounted. Not configurable -- browsers also don't let a site
   customize this prompt's wording any more, regardless.
+- The browser's own Back/Forward buttons navigate between assessment steps
+  instead of leaving the page -- every Continue/Skip push a new entry onto
+  `window.history` (via `pushState`, never changing the URL itself: the
+  third argument is always the current `location.href`), and pressing Back
+  or Forward restores the matching step via a `popstate` listener. The
+  in-app Back button goes through the exact same mechanism
+  (`window.history.back()`), so the two stay indistinguishable once
+  pressed. Only the respondent's CURRENT STEP is tracked this way -- their
+  answers stay exactly where they already lived (the player store, in
+  memory only), never duplicated into `history.state`, so navigating back
+  and forward can't desync or lose them. A reload still starts the run over
+  from step 1 regardless (see the `beforeunload` bullet above for why), and
+  pressing Back on the assessment's own first step leaves it entirely, the
+  same as it would without this library in the picture -- there's no earlier
+  in-assessment entry to intercept it with. Not configurable, and nothing to
+  opt out of: this runs whenever the respondent uses Continue/Skip/the Back
+  button, independent of any `render*To` prop.
 - `bgColor` works exactly like `<SurveyBuilder>`'s own -- added to this
   component's root element's `className` only (not a literal color value),
   so your own CSS can theme one mounted instance (`.acme-blue-theme { ...

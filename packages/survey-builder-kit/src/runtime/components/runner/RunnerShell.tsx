@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Box } from '@mui/material';
 import { usePlayerStore, usePlayerStoreApi } from '../../store/playerStore';
@@ -32,6 +32,31 @@ function visibleQuestionsOf(
   predefinedQuestionIds: Set<string>,
 ): QuestionDef[] {
   return questions.filter((q) => isVisible(q, answers, predefinedQuestionIds));
+}
+
+// What's pushed into `history.state` for each step the respondent reaches
+// via Continue/Skip/Edit/the in-app Back button -- just enough to restore
+// WHICH step they're on (`currentPageId`/`visitedPageStack`/`reviewing`),
+// never their answers (those stay in the player store, untouched by any of
+// this -- see SurveyRunnerProps' "beforeunload" bullet in the README).
+// `sbk`/`step` are this library's own markers: `sbk` tells a popstate
+// listener a given history entry is actually one of ours (the previous
+// entry -- whatever the host's page was before the respondent landed here,
+// or a DIFFERENT host page entirely -- almost certainly isn't, and must be
+// left alone rather than misread as step data); `step` is a monotonically
+// increasing counter, compared against the last-seen one to tell a
+// backward pop from a forward (redo) one without having to infer it from
+// stack lengths, which `reviewing` can make ambiguous.
+interface SbkHistoryState {
+  sbk: true;
+  step: number;
+  currentPageId: string;
+  visitedPageStack: string[];
+  reviewing: boolean;
+}
+
+function isSbkHistoryState(state: unknown): state is SbkHistoryState {
+  return !!state && typeof state === 'object' && (state as { sbk?: unknown }).sbk === true;
 }
 
 export interface RunnerShellProps {
@@ -79,13 +104,61 @@ export function RunnerShell({
   const visitedPageStack = usePlayerStore((s) => s.visitedPageStack);
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const goNext = usePlayerStore((s) => s.goNext);
-  const goBack = usePlayerStore((s) => s.goBack);
   const storeApi = usePlayerStoreApi();
 
   const [direction, setDirection] = useState<StageDirection>('forward');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [reviewing, setReviewing] = useState(false);
+
+  // The last `step` counter value this component itself applied -- compared
+  // against an incoming popstate's `step` to tell a backward pop from a
+  // forward (redo) one (see SbkHistoryState's own comment). Starts at 0,
+  // matching the `replaceState` seed below.
+  const historyStepRef = useRef(0);
+
+  // Seeds the CURRENT history entry (the one the host's page already
+  // occupies -- `replaceState`, never `pushState`, so this never adds a
+  // new entry or changes the URL) with this run's starting position, once,
+  // on mount. Without this, the entry a respondent would land back on by
+  // pressing Back from step 2 would carry no step data at all.
+  useEffect(() => {
+    const state = storeApi.getState();
+    if (!state.currentPageId) return;
+    historyStepRef.current = 0;
+    const payload: SbkHistoryState = {
+      sbk: true,
+      step: 0,
+      currentPageId: state.currentPageId,
+      visitedPageStack: state.visitedPageStack,
+      reviewing: false,
+    };
+    window.history.replaceState(payload, '', window.location.href);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The one and only place browser Back/Forward are handled -- restores
+  // position directly from what THIS entry's own `history.state` carries
+  // (never re-derived from current answers/branch logic, unlike goNext),
+  // and never calls pushState/back/forward itself, so there's no loop. A
+  // popped state that isn't one of ours (e.g. the host's own previous page,
+  // reached by pressing Back past this run's first step) is left alone --
+  // nothing here reacts to it, so the host's own navigation proceeds
+  // exactly as it would without this library in the picture.
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (!isSbkHistoryState(event.state)) return;
+      const goingBackward = event.state.step < historyStepRef.current;
+      historyStepRef.current = event.state.step;
+      storeApi.getState().restoreNavigation(event.state.currentPageId, event.state.visitedPageStack);
+      setReviewing(event.state.reviewing);
+      setDirection(goingBackward ? 'backward' : 'forward');
+      setErrorMessage(undefined);
+      setFieldErrors({});
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [storeApi]);
 
   if (!survey || !currentPageId) return null;
   const currentPage = survey.pages.find((p) => p.id === currentPageId);
@@ -100,6 +173,13 @@ export function RunnerShell({
   // own comment in playerStore -- so this can't be accidentally triggered
   // by the respondent finishing a page themselves). Either way, move
   // straight on rather than showing an empty or nothing-left-to-do screen.
+  // Deliberately NOT a history step (no pushHistoryStep call) -- a page
+  // skipped this way is never actually shown to the respondent, so there's
+  // nothing for Back to usefully return them to. This also runs during
+  // render (an existing pattern, not introduced here), where touching
+  // `window.history` would be its own hazard -- see pushHistoryStep's own
+  // comment for why every other transition calls it from an event handler
+  // or effect instead.
   if (visibleQuestions.every((q) => initialAnswerQuestionIds.has(q.id))) {
     goNext();
     return null;
@@ -117,14 +197,36 @@ export function RunnerShell({
   // everything below.
   const submissionBlocked = !!currentPage.blocksSubmission || isPageBlockedByRule(currentPage, answers);
 
+  // Called after EVERY intentional forward-like transition (Continue/Skip
+  // advancing to a new page or into review, and Edit jumping to an earlier
+  // page from review) -- never from the popstate handler itself, which is
+  // what keeps this loop-free. Reads the just-updated store state rather
+  // than taking it as a parameter, so it's always pushing what's actually
+  // on screen a moment later, regardless of which caller just changed it.
+  const pushHistoryStep = (nextReviewing: boolean) => {
+    const state = storeApi.getState();
+    if (!state.currentPageId) return;
+    historyStepRef.current += 1;
+    const payload: SbkHistoryState = {
+      sbk: true,
+      step: historyStepRef.current,
+      currentPageId: state.currentPageId,
+      visitedPageStack: state.visitedPageStack,
+      reviewing: nextReviewing,
+    };
+    window.history.pushState(payload, '', window.location.href);
+  };
+
   const advancePastCurrentPage = () => {
     const next = resolveNextPage(currentPage, answers);
     if (next === 'end') {
       setReviewing(true);
+      pushHistoryStep(true);
       return;
     }
     setDirection('forward');
     goNext();
+    pushHistoryStep(false);
   };
 
   const handleAdvance = () => {
@@ -195,16 +297,17 @@ export function RunnerShell({
     advancePastCurrentPage();
   };
 
+  // Routes through the browser's own history (`window.history.back()`)
+  // instead of mutating state directly -- the actual restoration (store
+  // position, `reviewing`, direction, clearing errors) all happens in the
+  // popstate handler above, the SAME place a physical browser Back press
+  // lands, so the in-app button and the browser button are indistinguishable
+  // once triggered. Does nothing when there's nowhere within this run to go
+  // back to (first page, not reviewing) -- calling history.back()
+  // unconditionally would instead leave the assessment entirely, back to
+  // whatever the host's own previous page was.
   const handleBack = () => {
-    if (reviewing) {
-      setReviewing(false);
-      return;
-    }
-    setErrorMessage(undefined);
-    setFieldErrors({});
-    if (!canGoBack) return;
-    setDirection('backward');
-    goBack();
+    if (reviewing || canGoBack) window.history.back();
   };
 
   const handleEdit = (questionId: string) => {
@@ -221,6 +324,7 @@ export function RunnerShell({
     }
     if (!targetPageId) {
       setReviewing(false);
+      pushHistoryStep(false);
       return;
     }
     // Pop pages off the EXISTING visitedPageStack (via the player store's own
@@ -231,6 +335,10 @@ export function RunnerShell({
     }
     setDirection('backward');
     setReviewing(false);
+    // A new step, not a browser Back -- opening the editor from review is
+    // its own forward-like transition (see pushHistoryStep's own comment),
+    // even though it moves the underlying page stack backward.
+    pushHistoryStep(false);
   };
 
   const singleQuestion = visibleQuestions[0];

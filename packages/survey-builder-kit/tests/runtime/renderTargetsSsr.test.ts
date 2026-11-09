@@ -48,4 +48,14 @@ describe('server rendering with render*To props set', () => {
       renderToString(renderAssessment({ survey: buildTwoPageSurvey(), renderProgressBarTo: '#progress' })),
     ).not.toThrow();
   });
+
+  // Every test above already exercises this (RunnerShell mounts regardless
+  // of render*To config), but this one calls it out explicitly: the browser
+  // Back/Forward history sync (history.replaceState on mount, the popstate
+  // listener) lives entirely in RunnerShell's effects, which React never
+  // runs during a server render -- same reasoning as the render*To
+  // resolution hook right above it in that file.
+  it('does not touch `window.history` during a server render', () => {
+    expect(() => renderToString(createElement(SurveyRunner, { survey: buildTwoPageSurvey() }))).not.toThrow();
+  });
 });
