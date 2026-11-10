@@ -100,7 +100,6 @@ export function RunnerShell({
   const currentPageId = usePlayerStore((s) => s.currentPageId);
   const answers = usePlayerStore((s) => s.answers);
   const predefinedQuestionIds = usePlayerStore((s) => s.predefinedQuestionIds);
-  const initialAnswerQuestionIds = usePlayerStore((s) => s.initialAnswerQuestionIds);
   const visitedPageStack = usePlayerStore((s) => s.visitedPageStack);
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const goNext = usePlayerStore((s) => s.goNext);
@@ -165,14 +164,13 @@ export function RunnerShell({
   if (!currentPage) return null;
 
   const visibleQuestions = visibleQuestionsOf(currentPage.questions, answers, predefinedQuestionIds);
-  // Covers two cases at once (an empty array satisfies .every() vacuously):
-  // nothing to show at all (every question hidden by a visibility rule or
-  // predefinedAnswers), OR everything still visible here was already
-  // supplied via initialAnswers before the respondent ever saw this page
-  // (initialAnswerQuestionIds is a static, mount-time snapshot -- see its
-  // own comment in playerStore -- so this can't be accidentally triggered
-  // by the respondent finishing a page themselves). Either way, move
-  // straight on rather than showing an empty or nothing-left-to-do screen.
+  // Nothing to show at all -- every question on this page is either hidden
+  // by its own visibilityRule or hidden via predefinedAnswers (see
+  // isVisible above; predefinedAnswers actually HIDES the question, unlike
+  // initialAnswers, which only pre-fills it -- a page covered entirely by
+  // initialAnswers still renders normally below, pre-filled values and
+  // all, so the respondent can see and change them, not skip past them
+  // unaware). Move straight on rather than showing an empty screen.
   // Deliberately NOT a history step (no pushHistoryStep call) -- a page
   // skipped this way is never actually shown to the respondent, so there's
   // nothing for Back to usefully return them to. This also runs during
@@ -180,7 +178,7 @@ export function RunnerShell({
   // `window.history` would be its own hazard -- see pushHistoryStep's own
   // comment for why every other transition calls it from an event handler
   // or effect instead.
-  if (visibleQuestions.every((q) => initialAnswerQuestionIds.has(q.id))) {
+  if (visibleQuestions.length === 0) {
     goNext();
     return null;
   }

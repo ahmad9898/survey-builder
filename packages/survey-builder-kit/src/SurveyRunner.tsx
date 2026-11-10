@@ -46,14 +46,13 @@ export interface SurveyRunnerProps {
   survey: Survey;
   /**
    * Resume a partially-answered survey. Only read on mount (and if
-   * `survey.id` later changes). Each question still renders normally,
-   * pre-filled with its value -- unlike `predefinedAnswers`, nothing is
-   * ever hidden on a MIXED page. But if every question on a page already
-   * has a value from `initialAnswers`, that whole page is skipped outright
-   * (the respondent never lands on it) -- there would be nothing left to
-   * show or answer there anyway. (This can't be triggered by the
-   * respondent finishing a page themselves -- only questions that already
-   * had a value here BEFORE the respondent started count.)
+   * `survey.id` later changes). Each question still renders normally, pre-
+   * filled with its value and fully visible/editable -- unlike
+   * `predefinedAnswers`, nothing is ever hidden, and a page is never
+   * skipped just because `initialAnswers` already covers every question on
+   * it; the respondent still lands on it and sees those values populated,
+   * free to change them before continuing. (`predefinedAnswers` below is
+   * the one that can skip a page outright, by actually hiding questions.)
    */
   initialAnswers?: Record<string, unknown>;
   /**
@@ -63,8 +62,8 @@ export interface SurveyRunnerProps {
    * `initialAnswers` -- but unlike `initialAnswers`, each of these
    * questions is also hidden from the respondent entirely, not just
    * pre-filled, even on a page with other, non-predefined questions still
-   * showing. A page where every question is predefined (or otherwise
-   * already fully covered by `initialAnswers`) is skipped outright.
+   * showing. A page where every question is predefined is skipped
+   * outright (there'd be nothing left to show there at all).
    *
    * The value still counts as a real answer for validation/branching/
    * scoring, and shows up normally in `onSubmit`/`onAnswer` -- this only
@@ -247,7 +246,6 @@ function SurveyRunnerInner({
   const loadSurvey = usePlayerStore((s) => s.loadSurvey);
   const setAnswers = usePlayerStore((s) => s.setAnswers);
   const setPredefinedQuestionIds = usePlayerStore((s) => s.setPredefinedQuestionIds);
-  const setInitialAnswerQuestionIds = usePlayerStore((s) => s.setInitialAnswerQuestionIds);
 
   // Timestamps this specific run (not the survey itself) -- reset alongside
   // the store's own state whenever a genuinely different survey is loaded,
@@ -309,9 +307,6 @@ function SurveyRunnerInner({
     }
     if (predefinedAnswers?.length) {
       setPredefinedQuestionIds(new Set(predefinedAnswers.map((a) => a.id)));
-    }
-    if (initialAnswers && Object.keys(initialAnswers).length > 0) {
-      setInitialAnswerQuestionIds(new Set(Object.keys(initialAnswers)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [survey.id]);

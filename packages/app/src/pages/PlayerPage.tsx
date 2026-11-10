@@ -84,6 +84,14 @@ export function PlayerPage() {
       <Box sx={{ flex: 1, minHeight: 0 }}>
         {renderAssessment({
           survey,
+          // Demo value for a "Date of Birth" question -- the key must match
+          // that question's own id/slug in whatever survey is loaded (the
+          // Builder auto-slugifies a "Date of Birth" title to
+          // "date-of-birth"); the value is a plain 'YYYY-MM-DD' string, the
+          // same format DateControl itself reads/produces. Harmless if no
+          // question with this id exists on the loaded survey -- it's just
+          // an unused key in that case.
+          initialAnswers: { 'date1': '1995-03-15' },
           onSubmit: handleSubmit,
           onAnswer: assessmentCallback,
           exitPath: '/',

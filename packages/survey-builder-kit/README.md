@@ -237,11 +237,10 @@ not a subset.
 
 - `initialAnswers` is only read once, on mount (and again if `survey.id`
   later changes) -- use it to resume a partially-answered survey. Each
-  question still renders normally, pre-filled. But if EVERY question on a page already has a value from
-  `initialAnswers`, that whole page is skipped outright (there'd be
-  nothing left to show or answer there). This can't trigger just because
-  the respondent finishes filling in a page themselves -- only a question
-  that already had a value here before they started counts.
+  question still renders normally, pre-filled and fully visible/editable --
+  a page is never skipped just because `initialAnswers` already covers
+  every question on it; the respondent still lands on it and sees those
+  values populated, free to change them before continuing.
 - `onAnswer` fires once per page advance -- when the respondent moves on to
   the next page, not on every keystroke/selection within a page (see
   `onChange` for that) -- with `submitted: false` and `response.answers`
