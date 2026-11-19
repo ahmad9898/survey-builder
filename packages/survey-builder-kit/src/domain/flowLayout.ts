@@ -238,54 +238,123 @@ function estimateLabelSize(label: string): { width: number; height: number } {
 // Auto-layout via dagre: left-to-right ranked layout, positions returned
 // keyed by page id (dagre's node position is its *center*; callers wanting
 // React Flow's top-left convention should subtract half the node size).
+//
+// Run as one dagre pass per weakly-connected component, then stacked
+// vertically, rather than a single pass over the whole graph. Unlinking (or
+// not-yet-reconnecting) a page splits the survey into separate pieces --
+// e.g. a lone orphaned page plus an unrelated still-connected chain -- and a
+// single dagre pass doesn't keep unrelated components apart: it's free to
+// rank/position them so their nodes land on top of each other. Laying out
+// each component on its own and stacking the results guarantees they never
+// overlap, no matter how the graph gets split.
 function computeDagreLayout(survey: Survey, fields: Map<string, FieldInfo>): Map<string, FlowPosition> {
-  const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: 'LR', nodesep: 70, ranksep: 110, marginx: 20, marginy: 20 });
-  g.setDefaultEdgeLabel(() => ({}));
+  const startPage = survey.pages.find((p) => p.id === survey.startPageId);
+  const hasAnyDisqualifying = survey.pages.some((p) => pageDisqualifyingLabels(p).length > 0);
+
+  const nodeSpecs = new Map<string, { width: number; height: number }>();
+  const edgeSpecs: { source: string; target: string; width: number; height: number }[] = [];
 
   for (const page of survey.pages) {
-    g.setNode(page.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    nodeSpecs.set(page.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   }
-  const startPage = survey.pages.find((p) => p.id === survey.startPageId);
   if (startPage) {
-    // Feeds the Start pill into the same layout pass as everything else so
-    // dagre reserves it real rank space one step before the start page,
+    // Feeds the Start pill into the same layout pass as the page it points
+    // at so dagre reserves it real rank space one step before that page,
     // rather than it being painted wherever happens to be free.
-    g.setNode(START_NODE_ID, { width: START_NODE_WIDTH, height: START_NODE_HEIGHT });
-    g.setEdge(START_NODE_ID, startPage.id, { width: 0, height: 0 });
+    nodeSpecs.set(START_NODE_ID, { width: START_NODE_WIDTH, height: START_NODE_HEIGHT });
+    edgeSpecs.push({ source: START_NODE_ID, target: startPage.id, width: 0, height: 0 });
   }
-  const hasAnyDisqualifying = survey.pages.some((p) => pageDisqualifyingLabels(p).length > 0);
   if (hasAnyDisqualifying) {
-    g.setNode(DISQUALIFIED_NODE_ID, { width: DISQUALIFIED_NODE_WIDTH, height: DISQUALIFIED_NODE_HEIGHT });
+    nodeSpecs.set(DISQUALIFIED_NODE_ID, { width: DISQUALIFIED_NODE_WIDTH, height: DISQUALIFIED_NODE_HEIGHT });
     for (const page of survey.pages) {
       for (const label of pageDisqualifyingLabels(page)) {
         const { width, height } = estimateLabelSize(label);
-        g.setEdge(page.id, DISQUALIFIED_NODE_ID, { width, height });
+        edgeSpecs.push({ source: page.id, target: DISQUALIFIED_NODE_ID, width, height });
       }
     }
   }
   for (const page of survey.pages) {
     for (const edge of outgoingEdges(page, fields)) {
       const { width, height } = estimateLabelSize(edge.label);
-      g.setEdge(page.id, edge.targetId, { width, height });
+      edgeSpecs.push({ source: page.id, target: edge.targetId, width, height });
     }
   }
 
-  dagre.layout(g);
+  // Union-find over node ids, joined by any edge between them (direction
+  // doesn't matter here -- this only decides which nodes may share a rank
+  // space, not how they're ordered within it).
+  const parent = new Map<string, string>();
+  for (const id of nodeSpecs.keys()) parent.set(id, id);
+  const find = (id: string): string => {
+    let root = id;
+    while (parent.get(root) !== root) root = parent.get(root)!;
+    parent.set(id, root);
+    return root;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const edge of edgeSpecs) {
+    if (nodeSpecs.has(edge.source) && nodeSpecs.has(edge.target)) union(edge.source, edge.target);
+  }
+
+  const componentOf = new Map<string, string>();
+  for (const id of nodeSpecs.keys()) componentOf.set(id, find(id));
+
+  // Stable, page-order-derived component ordering so an unrelated edit
+  // elsewhere in the survey doesn't shuffle which orphaned piece lands on
+  // top from one render to the next.
+  const componentIds: string[] = [];
+  const seenComponents = new Set<string>();
+  for (const page of survey.pages) {
+    const c = componentOf.get(page.id)!;
+    if (!seenComponents.has(c)) {
+      seenComponents.add(c);
+      componentIds.push(c);
+    }
+  }
 
   const positions = new Map<string, FlowPosition>();
-  for (const page of survey.pages) {
-    const node = g.node(page.id);
-    if (node) positions.set(page.id, { x: node.x, y: node.y });
+  const COMPONENT_GAP = 60;
+  let yOffset = 0;
+
+  for (const componentId of componentIds) {
+    const memberIds = Array.from(nodeSpecs.keys()).filter((id) => componentOf.get(id) === componentId);
+
+    const g = new dagre.graphlib.Graph();
+    g.setGraph({ rankdir: 'LR', nodesep: 70, ranksep: 110, marginx: 20, marginy: 20 });
+    g.setDefaultEdgeLabel(() => ({}));
+    for (const id of memberIds) {
+      const spec = nodeSpecs.get(id)!;
+      g.setNode(id, { width: spec.width, height: spec.height });
+    }
+    for (const edge of edgeSpecs) {
+      if (componentOf.get(edge.source) !== componentId || componentOf.get(edge.target) !== componentId) continue;
+      g.setEdge(edge.source, edge.target, { width: edge.width, height: edge.height });
+    }
+
+    dagre.layout(g);
+
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const id of memberIds) {
+      const node = g.node(id);
+      if (!node) continue;
+      minY = Math.min(minY, node.y - node.height / 2);
+      maxY = Math.max(maxY, node.y + node.height / 2);
+    }
+    if (minY === Infinity) continue;
+
+    for (const id of memberIds) {
+      const node = g.node(id);
+      if (!node) continue;
+      positions.set(id, { x: node.x, y: node.y - minY + yOffset });
+    }
+    yOffset += maxY - minY + COMPONENT_GAP;
   }
-  if (startPage) {
-    const node = g.node(START_NODE_ID);
-    if (node) positions.set(START_NODE_ID, { x: node.x, y: node.y });
-  }
-  if (hasAnyDisqualifying) {
-    const node = g.node(DISQUALIFIED_NODE_ID);
-    if (node) positions.set(DISQUALIFIED_NODE_ID, { x: node.x, y: node.y });
-  }
+
   return positions;
 }
 

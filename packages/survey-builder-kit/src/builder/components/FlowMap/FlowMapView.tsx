@@ -18,6 +18,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { Box, Button, Paper, Stack, Typography, useTheme } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { useBuilderStore, useBuilderStoreApi } from '../../store/builderStore';
 import { useFlowLayoutStore } from '../../store/flowLayoutStore';
 import { useSnackbarStore } from '../../store/snackbarStore';
@@ -219,6 +220,29 @@ export function FlowMapView() {
   // (a drag never touches either until it commits at onNodeDragStop). See
   // the two effects below for how this turns into what's actually rendered.
   const layout = useMemo(() => pagesToFlow(survey, overrides), [survey, overrides]);
+
+  // Pin every page's position the moment it's first computed, so it's never
+  // silently recomputed again. Without this, a page with no override of its
+  // own falls back to a fresh dagre pass on EVERY structural edit -- adding
+  // or deleting any page or connection, anywhere in the survey, not just the
+  // one touched -- which re-ranks and re-stacks the whole graph and makes
+  // already-placed pages visibly jump around. Promoting the auto-computed
+  // position into a real override as soon as it's seen makes "auto-layout"
+  // mean "placed once, like a brand-new page," not "recomputed forever."
+  // Converges in at most one extra render: once every node in `layout` has
+  // an override, `missing` is empty and this becomes a no-op.
+  useEffect(() => {
+    const missing = layout.nodes.filter((n) => !(n.id in overrides));
+    for (const n of missing) setOverride(n.id, n.position);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout]);
+
+  // Re-runs dagre over the whole graph and re-pins the result -- the only
+  // way positions change after the effect above, and only on explicit
+  // request (the "Auto-arrange" button), never as a side effect of an edit.
+  const handleAutoArrange = () => {
+    for (const p of survey.pages) clearOverride(p.id);
+  };
 
   // What's actually fed to <ReactFlow>. Position lives here and ONLY here
   // during an active drag -- see onNodesChange. Rebuilding this from `layout`
@@ -789,15 +813,27 @@ export function FlowMapView() {
           <FlowLegend />
         </Panel>
         <Panel position="bottom-left">
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<AddIcon fontSize="small" />}
-            onClick={handleAddPage}
-            sx={{ bgcolor: 'background.paper' }}
-          >
-            Add page
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AddIcon fontSize="small" />}
+              onClick={handleAddPage}
+              sx={{ bgcolor: 'background.paper' }}
+            >
+              Add page
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<AutoFixHighIcon fontSize="small" />}
+              onClick={handleAutoArrange}
+              sx={{ bgcolor: 'background.paper' }}
+              title="Re-run auto-layout and reset every page to its computed position"
+            >
+              Auto-arrange
+            </Button>
+          </Stack>
         </Panel>
       </ReactFlow>
       <RuleConditionPopover
