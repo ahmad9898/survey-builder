@@ -407,7 +407,9 @@ surveys, and `SurveyResponse`, `ScoreResult`, `ScoreByCategory` for
 responses, all exported as named types from `survey-builder-kit`. Read those
 directly (`node_modules/survey-builder-kit/dist/index.d.ts`, or just
 "go to definition" from your editor) rather than a hand-written schema doc
-here, which would drift the moment either side changes.
+here, which would drift the moment either side changes. Also exported as
+values (not just types): `OTHER_OPTION_VALUE`, `otherOptionFieldId`, and
+`isOtherOptionSelected` -- see `QuestionDef.allowOtherOption` below.
 
 A few things worth calling out that aren't obvious from the types alone:
 
@@ -468,6 +470,54 @@ A few things worth calling out that aren't obvious from the types alone:
   ```json
   { "id": "notice", "type": "label", "label": "Heads up", "description": "This section is optional.", "descriptionColor": "#b45309" }
   ```
+- `QuestionDef.allowOtherOption` (singleChoice/multipleChoice only) adds one
+  more selectable option -- labeled `otherOptionLabel` if set, `"Other"`
+  otherwise -- that reveals a free-text box instead of being a fixed choice.
+  The Builder exposes this as a checkbox right under a choice question's
+  options list ("Allow an 'Other' option with a text box"), with the label
+  field appearing once it's checked. A few things worth knowing about how
+  it's represented:
+  - Selecting it stores the sentinel `OTHER_OPTION_VALUE` (exported as a
+    constant, currently `'__other__'`) as this question's own answer -- for
+    multipleChoice, as one element of the answer array alongside any other
+    selected choices -- **never the typed text itself**. This keeps the
+    selection state stable and comparable (for conditions, scoring,
+    `enum`-based validation) independent of whatever the respondent types.
+  - The typed text lives separately, in the SAME flat answers map, under
+    `otherOptionFieldId(question.id)` (exported helper, returns
+    `` `${questionId}__other` ``) -- so `answers` stays the same
+    `Record<string, unknown>` shape every other part of this library
+    already assumes, just with one extra key per Other-enabled question.
+  - `isOtherOptionSelected(question, value)` (exported) tells you whether a
+    given answer value reflects this question's Other option being picked.
+  - In a submitted `SurveyResponse`, the sentinel is swapped back out for
+    the typed text -- `AnswerEntry.value` (singleChoice's own string, or the
+    one array element it replaces in multipleChoice's), `displayValue`, and
+    `otherText` all carry the actual typed text (falling back to the Other
+    label if it was somehow left blank), never the raw `'__other__'` string.
+    Only `AnswerEntry.options` keeps the sentinel, as the Other row's own
+    stable `value` (an identifier for "this option was Other", distinct
+    from whatever was typed) alongside the real choices:
+
+    ```json
+    {
+      "questionId": "color",
+      "type": "singleChoice",
+      "value": "Chartreuse",
+      "displayValue": "Chartreuse",
+      "otherText": "Chartreuse",
+      "options": [
+        { "value": "Red", "label": "Red", "selected": false },
+        { "value": "Blue", "label": "Blue", "selected": false },
+        { "value": "__other__", "label": "Other", "selected": true }
+      ]
+    }
+    ```
+  - The free-text box is a textarea (multiline), not a single-line input.
+    Continue/Submit stays clickable while it's empty -- attempting to
+    advance shows "Please specify an answer." right below it, the same
+    inline-error treatment any other required field gets (e.g. a blank
+    required shortText), not a silently disabled button.
 - `QuestionType` includes `'turnstile'` -- a Cloudflare Turnstile challenge.
   Its only "answer" is the token Turnstile hands back once the respondent
   passes; this library captures that token and that's it -- **verifying it

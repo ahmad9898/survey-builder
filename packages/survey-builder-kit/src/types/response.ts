@@ -56,6 +56,8 @@ export interface AnswerEntry {
   skipped?: boolean;
   /** Choice/multi-select only -- every option, selected or not. */
   options?: AnswerOption[];
+  /** The free text typed into this question's "Other" box, if its allowOtherOption is set AND the respondent picked it. Absent otherwise -- including when Other was picked but left blank. */
+  otherText?: string;
   /** True if the selected option(s) include one flagged disqualifying on this question. */
   disqualifying?: boolean;
   /** Snapshot of the disqualifying option's notice (title, and body if any), if `disqualifying` is true. */

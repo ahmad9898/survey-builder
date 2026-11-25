@@ -14,6 +14,8 @@ export interface QuestionStageProps {
   categoryLabel?: string;
   value: unknown;
   onChange: (value: unknown) => void;
+  otherValue?: unknown;
+  onOtherChange?: (value: string) => void;
   onAdvance: () => void;
   onBack: () => void;
   onSkip: () => void;
@@ -30,6 +32,8 @@ export function QuestionStage({
   categoryLabel,
   value,
   onChange,
+  otherValue,
+  onOtherChange,
   onAdvance,
   onBack,
   onSkip,
@@ -98,7 +102,15 @@ export function QuestionStage({
         </Typography>
       )}
 
-      <Control question={question} value={value} onChange={onChange} onAdvance={onAdvance} autoFocus />
+      <Control
+        question={question}
+        value={value}
+        onChange={onChange}
+        otherValue={otherValue}
+        onOtherChange={onOtherChange}
+        onAdvance={onAdvance}
+        autoFocus
+      />
 
       <DisqualifyingBanner notices={disqualifyingNotices} />
 

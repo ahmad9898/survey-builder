@@ -17,7 +17,13 @@ export type {
   ScoringMap,
   DisqualifyingNotice,
 } from './types/survey';
-export { isConditionGroup, CURRENT_SCHEMA_VERSION } from './types/survey';
+export {
+  isConditionGroup,
+  CURRENT_SCHEMA_VERSION,
+  OTHER_OPTION_VALUE,
+  otherOptionFieldId,
+  isOtherOptionSelected,
+} from './types/survey';
 
 // Answers/response JSON shape -- what onSubmit hands back from
 // <SurveyRunner> (onChange still hands back the plain live-answers map),

@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { canAttemptAdvance, getDisqualifyingNotices } from '../../src/runtime/components/runner/questionValidation';
-import type { QuestionDef } from '../../src/types/survey';
+import {
+  canAttemptAdvance,
+  getDisqualifyingNotices,
+  validateQuestion,
+} from '../../src/runtime/components/runner/questionValidation';
+import { compilePage } from '../../src/domain/schemaCompiler';
+import type { QuestionDef, SurveyPage } from '../../src/types/survey';
+
+function makePage(question: QuestionDef): SurveyPage {
+  const { schema, uischema } = compilePage({ questions: [question] });
+  return {
+    id: 'page_1',
+    title: 'Page 1',
+    questions: [question],
+    schema,
+    uischema,
+    branch: [],
+    defaultNextPageId: 'end',
+  };
+}
 
 const heartAttack: QuestionDef = {
   id: 'heartAttack',
@@ -90,5 +108,77 @@ describe('canAttemptAdvance with disqualifying options', () => {
     const required: QuestionDef = { ...symptoms, required: true };
     expect(canAttemptAdvance(required, [])).toBe(false);
     expect(canAttemptAdvance(required, ['Headache'])).toBe(true);
+  });
+});
+
+describe('canAttemptAdvance never gates on allowOtherOption', () => {
+  // Continue stays clickable while Other's text box is empty -- this gets
+  // the same "friendly inline error on attempted advance" treatment as any
+  // other required field, via validateQuestion below, not a silently
+  // disabled button (unlike required-multiselect/turnstile, which DO still
+  // disable it, unchanged).
+  it('allows advance regardless of whether Other text has been typed', () => {
+    const colorSingle: QuestionDef = {
+      id: 'color',
+      type: 'singleChoice',
+      label: 'Favorite color?',
+      choices: ['Red', 'Blue'],
+      allowOtherOption: true,
+    };
+    expect(canAttemptAdvance(colorSingle, '__other__')).toBe(true);
+  });
+});
+
+describe('validateQuestion with allowOtherOption', () => {
+  const colorSingle: QuestionDef = {
+    id: 'color',
+    type: 'singleChoice',
+    label: 'Favorite color?',
+    choices: ['Red', 'Blue'],
+    allowOtherOption: true,
+  };
+
+  const fruitsMulti: QuestionDef = {
+    id: 'fruits',
+    type: 'multipleChoice',
+    label: 'Favorite fruits?',
+    choices: ['Apple', 'Banana'],
+    allowOtherOption: true,
+  };
+
+  it('is valid for a plain choice selection, no Other involved', () => {
+    const page = makePage(colorSingle);
+    expect(validateQuestion(page, colorSingle, { color: 'Red' })).toEqual([]);
+  });
+
+  it('reports a friendly error when Other is selected but its text is empty or blank', () => {
+    const page = makePage(colorSingle);
+    expect(validateQuestion(page, colorSingle, { color: '__other__' })).toEqual(['Please specify an answer.']);
+    expect(validateQuestion(page, colorSingle, { color: '__other__', color__other: '   ' })).toEqual([
+      'Please specify an answer.',
+    ]);
+  });
+
+  it('is valid once non-blank text is typed', () => {
+    const page = makePage(colorSingle);
+    expect(
+      validateQuestion(page, colorSingle, { color: '__other__', color__other: 'Chartreuse' }),
+    ).toEqual([]);
+  });
+
+  it('applies the same check to a multipleChoice selection that includes Other', () => {
+    const page = makePage(fruitsMulti);
+    expect(validateQuestion(page, fruitsMulti, { fruits: ['Apple', '__other__'] })).toEqual([
+      'Please specify an answer.',
+    ]);
+    expect(
+      validateQuestion(page, fruitsMulti, { fruits: ['Apple', '__other__'], fruits__other: 'Dragonfruit' }),
+    ).toEqual([]);
+  });
+
+  it('never applies the Other check to a question without allowOtherOption', () => {
+    const plain: QuestionDef = { id: 'q', type: 'singleChoice', label: 'Q', choices: ['A', 'B'] };
+    const page = makePage(plain);
+    expect(validateQuestion(page, plain, { q: 'A' })).toEqual([]);
   });
 });

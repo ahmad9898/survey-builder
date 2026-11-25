@@ -51,6 +51,25 @@ describe('compilePage', () => {
     });
   });
 
+  it('adds the Other sentinel to the enum when allowOtherOption is set, for both choice types', () => {
+    expect(
+      compileOne({ id: 'q4a', type: 'singleChoice', label: 'L', choices: ['A', 'B'], allowOtherOption: true }),
+    ).toEqual({ type: 'string', enum: ['A', 'B', '__other__'] });
+    expect(
+      compileOne({ id: 'q4b', type: 'multipleChoice', label: 'L', choices: ['A', 'B'], allowOtherOption: true }),
+    ).toEqual({
+      type: 'array',
+      items: { type: 'string', enum: ['A', 'B', '__other__'] },
+      uniqueItems: true,
+    });
+  });
+
+  it('leaves the enum unchanged when allowOtherOption is false/absent', () => {
+    expect(
+      compileOne({ id: 'q4c', type: 'singleChoice', label: 'L', choices: ['A', 'B'], allowOtherOption: false }),
+    ).toEqual({ type: 'string', enum: ['A', 'B'] });
+  });
+
   it('compiles rating with default 1-5 range and respects overrides', () => {
     expect(compileOne({ id: 'q5', type: 'rating', label: 'L' })).toEqual({
       type: 'integer',

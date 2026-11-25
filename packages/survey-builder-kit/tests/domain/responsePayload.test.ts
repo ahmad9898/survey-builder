@@ -185,4 +185,107 @@ describe('buildResponsePayload', () => {
 
     expect(result.map((e) => e.questionId)).toEqual(['notice_label', 'name', 'nickname']);
   });
+
+  describe('allowOtherOption', () => {
+    const otherSingleChoicePage = makePage({
+      id: 'page_color',
+      title: 'Color',
+      questions: [
+        {
+          id: 'color',
+          slug: 'color',
+          title: 'Color',
+          type: 'singleChoice',
+          label: 'Favorite color?',
+          choices: ['Red', 'Blue'],
+          allowOtherOption: true,
+          otherOptionLabel: 'Something else',
+        },
+      ],
+    });
+
+    const otherMultiChoicePage = makePage({
+      id: 'page_fruits',
+      title: 'Fruits',
+      questions: [
+        {
+          id: 'fruits',
+          slug: 'fruits',
+          title: 'Fruits',
+          type: 'multipleChoice',
+          label: 'Favorite fruits?',
+          choices: ['Apple', 'Banana'],
+          allowOtherOption: true,
+        },
+      ],
+    });
+
+    it('lists the Other option (with its custom label) alongside the real choices, and exports the typed text as `value`', () => {
+      const survey = makeSurvey([otherSingleChoicePage]);
+      const result = buildResponsePayload(
+        survey,
+        { color: '__other__', color__other: 'Chartreuse' },
+        { visitedPageIds: ['page_color'] },
+      );
+
+      expect(findEntry(result, 'color')).toEqual({
+        questionId: 'color',
+        slug: 'color',
+        pageId: 'page_color',
+        pageTitle: 'Color',
+        type: 'singleChoice',
+        label: 'Favorite color?',
+        // The exported `value` is what the respondent actually typed, never
+        // the internal OTHER_OPTION_VALUE sentinel -- see
+        // resolveExportedValue's own comment in responsePayload.ts.
+        value: 'Chartreuse',
+        displayValue: 'Chartreuse',
+        options: [
+          { value: 'Red', label: 'Red', selected: false },
+          { value: 'Blue', label: 'Blue', selected: false },
+          { value: '__other__', label: 'Something else', selected: true },
+        ],
+        otherText: 'Chartreuse',
+      });
+    });
+
+    it('falls back to the Other label for both value and displayValue when nothing was typed', () => {
+      const survey = makeSurvey([otherSingleChoicePage]);
+      const result = buildResponsePayload(survey, { color: '__other__' }, { visitedPageIds: ['page_color'] });
+
+      expect(findEntry(result, 'color')?.value).toBe('Something else');
+      expect(findEntry(result, 'color')?.displayValue).toBe('Something else');
+      expect(findEntry(result, 'color')?.otherText).toBeUndefined();
+    });
+
+    it('handles Other as one element of a multipleChoice selection, substituting the typed text into both `value` and displayValue', () => {
+      const survey = makeSurvey([otherMultiChoicePage]);
+      const result = buildResponsePayload(
+        survey,
+        { fruits: ['Apple', '__other__'], fruits__other: 'Dragonfruit' },
+        { visitedPageIds: ['page_fruits'] },
+      );
+
+      const entry = findEntry(result, 'fruits');
+      expect(entry?.value).toEqual(['Apple', 'Dragonfruit']);
+      expect(entry?.displayValue).toBe('Apple, Dragonfruit');
+      expect(entry?.otherText).toBe('Dragonfruit');
+      // `options` keeps the stable sentinel as the Other row's own `value`
+      // (an identifier for "the Other slot was picked"), distinct from the
+      // typed text substituted into the entry's own `value` above.
+      expect(entry?.options).toEqual([
+        { value: 'Apple', label: 'Apple', selected: true },
+        { value: 'Banana', label: 'Banana', selected: false },
+        { value: '__other__', label: 'Other', selected: true },
+      ]);
+    });
+
+    it('omits otherText and leaves displayValue untouched when Other was never selected', () => {
+      const survey = makeSurvey([otherSingleChoicePage]);
+      const result = buildResponsePayload(survey, { color: 'Red' }, { visitedPageIds: ['page_color'] });
+
+      expect(findEntry(result, 'color')?.displayValue).toBe('Red');
+      expect(findEntry(result, 'color')?.otherText).toBeUndefined();
+    });
+  });
 });

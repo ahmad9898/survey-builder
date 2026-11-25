@@ -7,6 +7,7 @@ import { evaluateConditionGroup } from '../../../domain/conditionEvaluator';
 import { estimateProgress } from '../../../domain/flowLayout';
 import { formatAnswerDisplay } from '../../../domain/answerFormatting';
 import type { QuestionDef } from '../../../types/survey';
+import { otherOptionFieldId } from '../../../types/survey';
 import type { PortalTarget } from '../../../SurveyRunner';
 import { ProgressRail } from './ProgressRail';
 import { RunnerHeader } from './RunnerHeader';
@@ -268,14 +269,21 @@ export function RunnerShell({
     const nextAnswers = { ...answers, [questionId]: value };
     setAnswers(nextAnswers);
 
-    const question = visibleQuestions.find((q) => q.id === questionId);
+    // `questionId` is either a real question's own id, or the companion
+    // "Other" text field id for one (see otherOptionFieldId) -- either way,
+    // it's that OWNING question's error that needs re-checking, since typing
+    // into its Other box is just as much "this question changed" as picking
+    // a different option is.
+    const question = visibleQuestions.find((q) => q.id === questionId || otherOptionFieldId(q.id) === questionId);
     if (!question) return;
 
     if (isMultiQuestion) {
-      if (!(questionId in fieldErrors)) return;
-      const stillInvalid = !canAttemptAdvance(question, value) || validateQuestion(currentPage, question, nextAnswers).length > 0;
+      if (!(question.id in fieldErrors)) return;
+      const stillInvalid =
+        !canAttemptAdvance(question, nextAnswers[question.id]) ||
+        validateQuestion(currentPage, question, nextAnswers).length > 0;
       if (stillInvalid) return;
-      const { [questionId]: _cleared, ...rest } = fieldErrors;
+      const { [question.id]: _cleared, ...rest } = fieldErrors;
       setFieldErrors(rest);
       return;
     }
@@ -357,7 +365,14 @@ export function RunnerShell({
     ? visitedPageStack
         .flatMap((pageId) => survey.pages.find((p) => p.id === pageId)?.questions ?? [])
         .filter((q) => q.type !== 'label' && isVisible(q, answers, predefinedQuestionIds))
-        .map((question) => ({ question, answerText: formatAnswerDisplay(question, answers[question.id]) }))
+        .map((question) => ({
+          question,
+          answerText: formatAnswerDisplay(
+            question,
+            answers[question.id],
+            answers[otherOptionFieldId(question.id)] as string | undefined,
+          ),
+        }))
     : [];
 
   const liveMessage = errorMessage ?? (reviewing ? 'Review your answers' : `Question ${progress.currentStep} of ${progress.totalSteps}`);
@@ -373,7 +388,9 @@ export function RunnerShell({
       onAdvance={handleAdvance}
       onBack={handleBack}
       canGoBack={canGoBack}
-      canAttemptAdvance={!submissionBlocked && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))}
+      canAttemptAdvance={
+        !submissionBlocked && visibleQuestions.every((q) => canAttemptAdvance(q, answers[q.id]))
+      }
       isFinalPage={isFinalPage}
       errors={fieldErrors}
       direction={direction}
@@ -384,6 +401,8 @@ export function RunnerShell({
       categoryLabel={currentPage.showTitle ? currentPage.title : undefined}
       value={answers[singleQuestion.id]}
       onChange={(value) => handleChangeQuestion(singleQuestion.id, value)}
+      otherValue={answers[otherOptionFieldId(singleQuestion.id)]}
+      onOtherChange={(text) => handleChangeQuestion(otherOptionFieldId(singleQuestion.id), text)}
       onAdvance={handleAdvance}
       onBack={handleBack}
       onSkip={handleSkip}

@@ -1,6 +1,12 @@
 import type { JsonSchema, UISchemaElement } from '@jsonforms/core';
 import type { QuestionDef, QuestionType, SurveyPage } from '../types/survey';
+import { OTHER_OPTION_VALUE } from '../types/survey';
 import { compileVisibilityRule } from './conditionCompiler';
+
+function choiceEnum(q: QuestionDef): string[] {
+  const choices = q.choices ?? [];
+  return q.allowOtherOption ? [...choices, OTHER_OPTION_VALUE] : choices;
+}
 
 function compileQuestionSchema(q: QuestionDef): JsonSchema {
   switch (q.type) {
@@ -22,11 +28,11 @@ function compileQuestionSchema(q: QuestionDef): JsonSchema {
       };
     }
     case 'singleChoice':
-      return { type: 'string', enum: q.choices ?? [] };
+      return { type: 'string', enum: choiceEnum(q) };
     case 'multipleChoice':
       return {
         type: 'array',
-        items: { type: 'string', enum: q.choices ?? [] },
+        items: { type: 'string', enum: choiceEnum(q) },
         uniqueItems: true,
       };
     case 'rating':
@@ -84,6 +90,10 @@ function compileQuestionUiElement(q: QuestionDef): UISchemaElement {
   // so a plain question's compiled UI schema doesn't grow a stray key.
   if (q.disqualifyingOptions && Object.keys(q.disqualifyingOptions).length > 0) {
     options.disqualifyingOptions = q.disqualifyingOptions;
+  }
+  if (q.allowOtherOption) {
+    options.allowOtherOption = true;
+    options.otherOptionLabel = q.otherOptionLabel ?? 'Other';
   }
 
   return {

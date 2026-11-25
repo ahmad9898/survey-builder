@@ -8,6 +8,7 @@ import { QuestionStage } from '../../runtime/components/runner/QuestionStage';
 import { MultiQuestionStage } from '../../runtime/components/runner/MultiQuestionStage';
 import { validateQuestion, canAttemptAdvance } from '../../runtime/components/runner/questionValidation';
 import type { QuestionDef, SurveyPage } from '../../types/survey';
+import { otherOptionFieldId } from '../../types/survey';
 
 function visibleQuestionsOf(questions: QuestionDef[], answers: Record<string, unknown>): QuestionDef[] {
   return questions.filter((q) => !q.visibilityRule || evaluateConditionGroup(q.visibilityRule, answers));
@@ -118,13 +119,17 @@ export function PreviewDrawer({ open, onClose }: { open: boolean; onClose: () =>
             categoryLabel={page.showTitle ? page.title : undefined}
             value={answers[singleQuestion.id]}
             onChange={(value) => setAnswers({ ...answers, [singleQuestion.id]: value })}
+            otherValue={answers[otherOptionFieldId(singleQuestion.id)]}
+            onOtherChange={(text) => setAnswers({ ...answers, [otherOptionFieldId(singleQuestion.id)]: text })}
             onAdvance={() => handleAdvance(page)}
             onBack={() => {}}
             onSkip={() => {}}
             canGoBack={false}
             canSkip={false}
             canAttemptAdvance={
-              !page.blocksSubmission && !isPageBlockedByRule(page, answers) && canAttemptAdvance(singleQuestion, answers[singleQuestion.id])
+              !page.blocksSubmission &&
+              !isPageBlockedByRule(page, answers) &&
+              canAttemptAdvance(singleQuestion, answers[singleQuestion.id])
             }
             isFinalQuestion={resolveNextPage(page, answers) === 'end'}
             error={errorMessage}

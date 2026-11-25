@@ -599,6 +599,31 @@ export function QuestionCard({
                 disqualifyingOptions={question.disqualifyingOptions}
               />
             )}
+            {hasChoices && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!question.allowOtherOption}
+                    onChange={(e) =>
+                      updateQuestion(question.id, { allowOtherOption: e.target.checked || undefined })
+                    }
+                  />
+                }
+                label={`Allow an "Other" option with a text box`}
+              />
+            )}
+            {hasChoices && question.allowOtherOption && (
+              <TextField
+                label="Label for the Other option"
+                size="small"
+                fullWidth
+                placeholder="Other"
+                value={question.otherOptionLabel ?? ''}
+                onChange={(e) =>
+                  updateQuestion(question.id, { otherOptionLabel: e.target.value || undefined })
+                }
+              />
+            )}
             {hasMinMax && (
               <>
                 <Stack direction="row" spacing={1}>

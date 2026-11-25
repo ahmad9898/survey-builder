@@ -1,5 +1,6 @@
 import Ajv from 'ajv';
 import type { DisqualifyingNotice, QuestionDef, SurveyPage } from '../../../types/survey';
+import { isOtherOptionSelected, otherOptionFieldId } from '../../../types/survey';
 import { describeValidationErrors } from '../../../domain/validationMessages';
 import { validateDateAge } from '../../../domain/ageValidation';
 import { singleQuestionSchema } from './singleQuestionSchema';
@@ -10,11 +11,24 @@ import { singleQuestionSchema } from './singleQuestionSchema';
 // question, not a whole page's worth of not-yet-shown siblings), not HOW.
 const ajv = new Ajv({ allErrors: true, strict: false });
 
+// An "Other" selection with nothing (or only whitespace) typed into its box
+// is treated the same as any other required-but-empty field -- a friendly
+// message on an attempted advance, same as a blank required shortText's AJV
+// minLength error, not a silent disabled Continue (that treatment is
+// reserved for turnstile/required-multiselect -- see canAttemptAdvance's own
+// comment for why those two are different).
+function validateOtherText(question: QuestionDef, answers: Record<string, unknown>): string | undefined {
+  if (!isOtherOptionSelected(question, answers[question.id])) return undefined;
+  const otherText = answers[otherOptionFieldId(question.id)];
+  if (typeof otherText === 'string' && otherText.trim() !== '') return undefined;
+  return 'Please specify an answer.';
+}
+
 // Validates a single question's current answer against the exact rules
 // schemaCompiler.ts already compiled for it (required/min/max/pattern/etc,
-// read back out of page.schema), plus the one check that can't be a static
-// JSON Schema rule (date age, relative to "now" -- see ageValidation.ts).
-// Returns friendly messages, empty when valid.
+// read back out of page.schema), plus the checks that can't be static JSON
+// Schema rules: date age (relative to "now" -- see ageValidation.ts) and an
+// "Other" selection with no text typed yet.
 export function validateQuestion(page: SurveyPage, question: QuestionDef, answers: Record<string, unknown>): string[] {
   if (question.type === 'label') return [];
 
@@ -22,8 +36,10 @@ export function validateQuestion(page: SurveyPage, question: QuestionDef, answer
   const valid = ajv.validate(schema, { [question.id]: answers[question.id] });
   const schemaMessages = valid ? [] : describeValidationErrors(ajv.errors ?? [], [question]).map((m) => m.message);
 
-  const ageMessage = validateDateAge(question, answers[question.id]);
-  return ageMessage ? [...schemaMessages, ageMessage] : schemaMessages;
+  const extraMessages = [validateDateAge(question, answers[question.id]), validateOtherText(question, answers)].filter(
+    (m): m is string => !!m,
+  );
+  return [...schemaMessages, ...extraMessages];
 }
 
 // Notices for whichever of this question's options are BOTH currently

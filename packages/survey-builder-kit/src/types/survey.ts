@@ -142,6 +142,18 @@ export interface QuestionDef {
   // UI-schema metadata only, consulted by the Builder's options list, the
   // runner, and the flow map, never by schema validation.
   disqualifyingOptions?: Record<string, DisqualifyingNotice>;
+  // For singleChoice/multipleChoice -- adds one more selectable option,
+  // labeled `otherOptionLabel` (defaulting to "Other" wherever it's
+  // rendered), that reveals a free-text box instead of being a fixed choice.
+  // Selecting it stores the sentinel OTHER_OPTION_VALUE as this question's
+  // own answer (or, for multipleChoice, as one element of the answer array)
+  // -- never the typed text itself -- so the selection state stays stable
+  // and comparable (conditions/scoring/export all key off the same fixed
+  // string) independent of whatever the respondent types or how often they
+  // change it. The typed text itself is stored separately, under
+  // otherOptionFieldId(id) in the same flat answers map.
+  allowOtherOption?: boolean;
+  otherOptionLabel?: string;
   // Marks this one question as a "trigger" question -- see
   // SurveyRunnerProps.onAnswer's own comment for what that changes about
   // when/how it fires. Never compiled into the JSONForms schema/UI schema
@@ -196,6 +208,33 @@ export interface SurveyPage {
   // have to opt out of everywhere. Never affects the Builder's own canvas,
   // sidebar, or flow map, which always show `title` regardless.
   showTitle?: boolean;
+}
+
+// The fixed answer value a singleChoice/multipleChoice question's own field
+// is set to when the respondent picks its "Other" option -- see
+// QuestionDef.allowOtherOption's own comment for why this (never the typed
+// text) is what's actually stored there.
+export const OTHER_OPTION_VALUE = '__other__';
+
+// The companion answers-map key holding the free text typed into an "Other"
+// box, for the question whose own answer (at `questionId`) is/contains
+// OTHER_OPTION_VALUE. A plain, predictable suffix rather than a nested
+// value, so the answers map stays the same flat `Record<string, unknown>`
+// shape every other part of this library (player store, scoring,
+// conditions, predefinedAnswers) already assumes.
+export function otherOptionFieldId(questionId: string): string {
+  return `${questionId}__other`;
+}
+
+// Whether `value` (this question's own current/submitted answer) reflects
+// its "Other" option having been picked -- true for singleChoice only when
+// the value IS the sentinel, for multipleChoice only when the sentinel is
+// one of the selected values. Always false for a question that doesn't
+// allow one, regardless of value.
+export function isOtherOptionSelected(question: QuestionDef, value: unknown): boolean {
+  if (!question.allowOtherOption) return false;
+  if (question.type === 'multipleChoice') return Array.isArray(value) && value.includes(OTHER_OPTION_VALUE);
+  return value === OTHER_OPTION_VALUE;
 }
 
 // Bumped when the Survey JSON shape changes in a way that would need a

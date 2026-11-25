@@ -16,4 +16,12 @@ export interface QuestionControlProps {
   // a click.
   onAdvance: () => void;
   autoFocus?: boolean;
+  // The "Other" free-text box's own value/setter -- only read by the choice
+  // controls that support QuestionDef.allowOtherOption (every other control
+  // ignores both). Kept separate from `value`/`onChange` (which always hold
+  // this question's own OTHER_OPTION_VALUE-or-real-choice answer, never the
+  // typed text) so the two can be wired to two different keys in the same
+  // flat answers map -- see otherOptionFieldId.
+  otherValue?: unknown;
+  onOtherChange?: (value: string) => void;
 }

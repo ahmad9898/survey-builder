@@ -2,6 +2,7 @@ import { Box, Button, Stack, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import type { QuestionDef } from '../../../types/survey';
+import { otherOptionFieldId } from '../../../types/survey';
 import { controlForQuestion } from './controls';
 import type { StageDirection } from './QuestionStage';
 import { getDisqualifyingNotices } from './questionValidation';
@@ -93,6 +94,8 @@ export function MultiQuestionStage({
                 question={question}
                 value={answers[question.id]}
                 onChange={(value) => onChangeQuestion(question.id, value)}
+                otherValue={answers[otherOptionFieldId(question.id)]}
+                onOtherChange={(text) => onChangeQuestion(otherOptionFieldId(question.id), text)}
                 onAdvance={noop}
               />
               <DisqualifyingBanner notices={disqualifyingNotices} />
